@@ -89,7 +89,25 @@ export class CombatModal {
 
       ${this._log.length > 0 ? `
         <div class="cm-log">
-          ${this._log.slice(-4).map(l => `<div class="cm-log-line">${l}</div>`).join('')}
+          ${this._log.slice(-3).map(l => {
+            if (l.aa)    return `<div class="cm-log-line aa">⚡ AA guns fire: <b>${l.hits}</b> aircraft shot down</div>`;
+            if (l.error) return `<div class="cm-log-line err">⚠ Combat error — retry</div>`;
+            return `<div class="cm-log-line">
+              <div class="cm-log-round">Round ${l.round}</div>
+              <div class="cm-log-row">
+                <span class="cm-log-atk">Attk</span>
+                <span class="cm-log-dice">${l.atkDice}</span>
+                <span class="cm-log-result ${l.atkHits > 0 ? 'hit' : ''}">${l.atkHits} hit${l.atkHits !== 1 ? 's' : ''}</span>
+                ${l.defKilled > 0 ? `<span class="cm-log-kill">−${l.defKilled} enemy</span>` : ''}
+              </div>
+              <div class="cm-log-row">
+                <span class="cm-log-def">Def</span>
+                <span class="cm-log-dice">${l.defDice}</span>
+                <span class="cm-log-result ${l.defHits > 0 ? 'hit def' : ''}">${l.defHits} hit${l.defHits !== 1 ? 's' : ''}</span>
+                ${l.atkKilled > 0 ? `<span class="cm-log-kill def">−${l.atkKilled} yours</span>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
         </div>
       ` : ''}
 
@@ -129,6 +147,17 @@ export class CombatModal {
     }).join('');
   }
 
+  _renderDiceRow(rolls, hits) {
+    if (!rolls || rolls.length === 0) return '<span style="color:#555">—</span>';
+    // Mark the lowest-value rolls as hits (so hit count matches)
+    const indexed = rolls.map((r, i) => ({ r, i }));
+    const sorted = [...indexed].sort((a, b) => a.r - b.r);
+    const hitSet = new Set(sorted.slice(0, hits).map(x => x.i));
+    return rolls.map((r, i) =>
+      `<span class="cm-die ${hitSet.has(i) ? 'hit' : 'miss'}">${r}</span>`
+    ).join('');
+  }
+
   _doRound() {
     const nation = this.state.currentNation;
     const attackers = this.state.getUnits(this._tid, nation);
@@ -147,7 +176,7 @@ export class CombatModal {
         result.aaResults.targets.forEach(id => {
           this.state.units[this._tid] = this.state.units[this._tid].filter(u => u.id !== id);
         });
-        this._log.push(`⚡ AA fire: ${result.aaResults.hits} aircraft shot down!`);
+        this._log.push({ aa: true, hits: result.aaResults.hits });
       }
 
       // Attacker hits → pick defender casualties
@@ -170,7 +199,14 @@ export class CombatModal {
 
       const atkKilled = atkCas.filter(c => c.killed).length;
       const defKilled = defCas.filter(c => c.killed).length;
-      this._log.push(`Round ${this._round}: You hit ${result.attackerHits} 🎯 | They hit ${result.defenderHits} 💥 (${atkKilled} lost, ${defKilled} enemy lost)`);
+
+      this._log.push({
+        round: this._round,
+        atkHits: result.attackerHits, defHits: result.defenderHits,
+        atkDice: this._renderDiceRow(result.attackerRolls || [], result.attackerHits),
+        defDice: this._renderDiceRow(result.defenderRolls || [], result.defenderHits),
+        atkKilled, defKilled,
+      });
 
       this.state.autosave();
 
@@ -186,7 +222,7 @@ export class CombatModal {
       }
     } catch (e) {
       console.error('[CombatModal] round error:', e);
-      this._log.push('⚠ Error in combat round. Try again.');
+      this._log.push({ error: true });
       this._render();
     }
   }
@@ -261,10 +297,32 @@ const COMBAT_CSS = `
 
   .cm-log {
     background: #0a1422; border: 1px solid #1a2a3a;
-    border-radius: 6px; padding: 10px;
-    margin-bottom: 14px; max-height: 100px; overflow-y: auto;
+    border-radius: 6px; padding: 8px 10px;
+    margin-bottom: 14px; max-height: 160px; overflow-y: auto;
   }
-  .cm-log-line { font-size: 0.78rem; color: #8aaa8a; margin-bottom: 3px; }
+  .cm-log-line { font-size: 0.72rem; color: #8aaa8a; margin-bottom: 6px; }
+  .cm-log-line.aa  { color: #e8c840; }
+  .cm-log-line.err { color: #e05040; }
+  .cm-log-round  { font-size: 0.62rem; color: #506080; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+  .cm-log-row    { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+  .cm-log-atk    { width: 28px; font-size: 0.6rem; color: #70b870; font-weight: bold; }
+  .cm-log-def    { width: 28px; font-size: 0.6rem; color: #8080e0; font-weight: bold; }
+  .cm-log-dice   { display: flex; gap: 2px; flex-wrap: wrap; flex: 1; }
+  .cm-log-result { font-size: 0.62rem; color: #707060; width: 40px; text-align: right; }
+  .cm-log-result.hit     { color: #70e870; }
+  .cm-log-result.hit.def { color: #e07070; }
+  .cm-log-kill   { font-size: 0.6rem; color: #c05040; font-weight: bold; }
+  .cm-log-kill.def { color: #e05040; }
+
+  /* Dice pips */
+  .cm-die {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; border-radius: 3px;
+    font-size: 0.65rem; font-weight: 900;
+    border: 1px solid;
+  }
+  .cm-die.hit  { background: #1a3a1a; color: #70e060; border-color: #3a8030; }
+  .cm-die.miss { background: #1a1a1a; color: #505040; border-color: #2a2a20; }
 
   .cm-actions { display: flex; gap: 10px; }
   .cm-btn {
