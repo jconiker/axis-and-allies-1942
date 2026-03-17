@@ -114,6 +114,9 @@ export class HUD {
         <div class="h-ipc-val">${ipc}</div>
         <div class="h-ipc-lbl">IPC</div>
       </div>
+
+      <!-- Rules button -->
+      <button class="h-rules-btn" id="btn-rules" title="Rules Reference">📖</button>
     `;
   }
 }
@@ -197,4 +200,15 @@ const HUD_CSS = `
   }
   .h-ipc-val { font-size: 1.2rem; color: #c8a040; font-weight: 900; line-height: 1; }
   .h-ipc-lbl { font-size: 0.52rem; color: #5a6a3a; letter-spacing: 1px; }
+
+  /* ── Rules button ── */
+  .h-rules-btn {
+    background: #1a1e14; border: 1px solid #3a4028;
+    color: #8a9060; font-size: 1rem;
+    width: 32px; height: 32px; border-radius: 5px;
+    cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .h-rules-btn:hover { background: #2a2e1c; color: #c0b880; }
 `;

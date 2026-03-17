@@ -2,11 +2,13 @@ import { GameState } from '../engine/GameState.js';
 import { TurnEngine } from '../engine/TurnEngine.js';
 import { AIController } from '../ai/AIController.js';
 import { SCENARIO_1942 } from '../data/scenarios.js';
-import { NATIONS, TURN_ORDER } from '../data/nations.js';
+import { NATIONS, TURN_ORDER, areEnemies } from '../data/nations.js';
+import { TERRITORIES } from '../data/territories.js';
 import { MapRenderer } from './MapRenderer.js';
 import { HUD } from './HUD.js';
 import { PurchasePanel } from './PurchasePanel.js';
 import { CombatModal } from './CombatModal.js';
+import { RulesPanel } from './RulesPanel.js';
 
 export class App {
   constructor(container) {
@@ -203,11 +205,15 @@ export class App {
     this.purchasePanel = new PurchasePanel(document.getElementById('overlay-root'), this);
     this.combatModal = new CombatModal(document.getElementById('overlay-root'), this);
 
+    this.rulesPanel = new RulesPanel(document.body);
     this._buildPhaseBar();
     this._wireEvents();
 
     this.hud.render();
     this.map.render();
+
+    // Wire rules button (rendered by HUD)
+    document.getElementById('btn-rules')?.addEventListener('click', () => this.rulesPanel?.show());
 
     if (this.state.phase === 'setup') {
       this.turnEngine.startGame();
@@ -265,6 +271,8 @@ export class App {
         this.movingUnits = [];
         this.validTargets = [];
         this.hud.render();
+        // Re-wire rules button (HUD innerHTML is rebuilt each render)
+        document.getElementById('btn-rules')?.addEventListener('click', () => this.rulesPanel?.show());
         this.map.render();
         this._updatePhaseHint(data.phase);
 
@@ -425,11 +433,100 @@ export class App {
 
   _getValidTargets(fromId, units, phase) {
     try {
-      const { MoveValidator } = window.__validators || {};
-      // Simple adjacency fallback — a proper MoveValidator would be used here
-      const territory = window.__TERRITORIES?.[fromId];
-      return territory?.adjacent || [];
-    } catch { return []; }
+      const nation = this.state.currentNation;
+
+      // Determine the dominant unit type in the selection
+      // (mixed stacks use the most restrictive movement)
+      const LAND_TYPES  = new Set(['infantry','artillery','armor','antiair']);
+      const AIR_TYPES   = new Set(['fighter','bomber']);
+      const NAVAL_TYPES = new Set(['submarine','destroyer','cruiser','carrier','battleship','transport']);
+
+      const UNIT_MOVE = {
+        infantry:1, artillery:1, armor:2, antiair:1,
+        fighter:4,  bomber:6,
+        submarine:2, destroyer:2, cruiser:2,
+        carrier:2,  battleship:2, transport:2,
+      };
+
+      // Figure out unit categories
+      let hasLand = false, hasAir = false, hasNaval = false;
+      units.forEach(u => {
+        if (LAND_TYPES.has(u.type))  hasLand  = true;
+        if (AIR_TYPES.has(u.type))   hasAir   = true;
+        if (NAVAL_TYPES.has(u.type)) hasNaval = true;
+      });
+
+      // AA guns may not move in combat phase
+      if (phase === 'combat_move' && units.every(u => u.type === 'antiair')) return [];
+
+      // Use the movement range of the MOST RESTRICTIVE unit type in the stack.
+      // Mixed land+air stacks show land range — air units must be moved separately.
+      // This prevents "whole map goes green" from fighters dragging along infantry.
+      let maxMove = 1;
+      units.forEach(u => {
+        if (hasLand && AIR_TYPES.has(u.type)) return; // skip air if land present
+        maxMove = Math.max(maxMove, UNIT_MOVE[u.type] || 1);
+      });
+
+      // BFS to find all reachable territory IDs within maxMove steps
+      const reachable = new Set();
+      // frontier: [{id, movesLeft, enteredEnemy}]
+      const frontier  = [{ id: fromId, movesLeft: maxMove, enteredEnemy: false }];
+      const visited   = new Map(); // id → movesLeft (prune if already visited with more moves)
+
+      while (frontier.length > 0) {
+        const { id, movesLeft, enteredEnemy } = frontier.shift();
+        const t = TERRITORIES[id];
+        if (!t) continue;
+
+        for (const adjId of (t.adjacent || [])) {
+          const adj = TERRITORIES[adjId];
+          if (!adj) continue;
+
+          // Type constraints
+          if (hasLand  && !hasAir && adj.type === 'sea')  continue; // land can't enter sea
+          if (hasNaval && !hasAir && adj.type !== 'sea')  continue; // naval can't enter land
+
+          const owner    = this.state.ownership[adjId];
+          const isEnemy  = owner && owner !== 'neutral' && areEnemies(owner, nation);
+          const isFriendly = !isEnemy;
+
+          if (phase === 'combat_move') {
+            // Can move to any adjacent territory in combat move
+            // Land/naval stop when entering enemy territory (no passing through)
+            // Air units can fly over territory freely
+            reachable.add(adjId);
+
+            const prevMoves = visited.get(adjId);
+            if (movesLeft > 1 && (prevMoves === undefined || prevMoves < movesLeft - 1)) {
+              visited.set(adjId, movesLeft - 1);
+              // Land stops when it enters enemy territory (can't pass through)
+              if (!enteredEnemy && (!isEnemy || hasAir)) {
+                frontier.push({ id: adjId, movesLeft: movesLeft - 1, enteredEnemy: isEnemy });
+              }
+            }
+
+          } else if (phase === 'noncombat_move') {
+            // Non-combat: can only enter friendly or neutral territories
+            if (isEnemy) continue;
+
+            reachable.add(adjId);
+            const prevMoves = visited.get(adjId);
+            if (movesLeft > 1 && (prevMoves === undefined || prevMoves < movesLeft - 1)) {
+              visited.set(adjId, movesLeft - 1);
+              frontier.push({ id: adjId, movesLeft: movesLeft - 1, enteredEnemy: false });
+            }
+          }
+        }
+      }
+
+      // Remove the source territory itself
+      reachable.delete(fromId);
+      return [...reachable];
+    } catch (e) {
+      console.error('[App] _getValidTargets error:', e);
+      return [];
+    }
   }
 
   _handlePlaceClick(territoryId) {

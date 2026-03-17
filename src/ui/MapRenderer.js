@@ -5,47 +5,55 @@ import { getAllUnits } from '../data/units.js';
 // Expose territories globally for App._getValidTargets
 window.__TERRITORIES = TERRITORIES;
 
-// Nation fill colors — richer, painterly tones matching App Store game
+// Nation fill colors — rich painterly tones
 const NATION_FILL = {
-  ussr:    '#7a1818',
-  germany: '#3a5050',
-  uk:      '#6a4406',
-  japan:   '#9a6808',
-  usa:     '#1e4a1c',
+  ussr:    '#8a1a1a',
+  germany: '#2e4a58',
+  uk:      '#7a5008',
+  japan:   '#a07010',
+  usa:     '#1c4a1a',
   neutral: '#4a4830',
 };
 
-// Stroke color for territory rings / selection
-const NATION_RING = {
+const NATION_FILL_LIGHT = {
   ussr:    '#c02828',
-  germany: '#6090a0',
-  uk:      '#c88018',
-  japan:   '#d0a020',
-  usa:     '#3a8030',
+  germany: '#5090a8',
+  uk:      '#c88020',
+  japan:   '#d0a828',
+  usa:     '#2a7028',
   neutral: '#7a7850',
 };
 
-const OCEAN_DEEP = '#0e1e38';
+// Stroke color for selection rings
+const NATION_RING = {
+  ussr:    '#e03030',
+  germany: '#70b0c8',
+  uk:      '#e8a030',
+  japan:   '#e8c030',
+  usa:     '#40a838',
+  neutral: '#9a9870',
+};
+
+const OCEAN_DEEP = '#0b1a30';
 const VB_W = 1400, VB_H = 780;
 
-// One-char unit codes — matches App Store shorthand
 const UNIT_CODE = {
-  infantry: 'I', artillery: 'A', armor: 'T', antiair: 'AA',
-  fighter: 'F', bomber: 'B', tactical_bomber: 'TB',
-  submarine: 'S', destroyer: 'D', cruiser: 'C',
-  carrier: 'V', battleship: 'W', transport: 'P',
+  infantry: 'INF', artillery: 'ART', armor: 'ARM', antiair: 'AA',
+  fighter: 'FTR', bomber: 'BMB',
+  submarine: 'SUB', destroyer: 'DD', cruiser: 'CA',
+  carrier: 'CV', battleship: 'BB', transport: 'TRN',
 };
 
 export class MapRenderer {
   constructor(container, app) {
-    this.container  = container;
-    this.app        = app;
-    this.state      = app.state;
-    this.selectedId = null;
+    this.container   = container;
+    this.app         = app;
+    this.state       = app.state;
+    this.selectedId  = null;
     this.validTargets = new Set();
-    this.svg        = null;
-    this._pinching  = false;
-    this._blobGroups = {};   // nation id → <g> element
+    this.svg         = null;
+    this._pinching   = false;
+    this._blobGroups = {};
   }
 
   render() {
@@ -87,7 +95,7 @@ export class MapRenderer {
     bg.setAttribute('fill', 'url(#ocean-grad)');
     svg.appendChild(bg);
 
-    // ── Painted territory blob layers (bottom, one per nation) ──
+    // Nation blob layers — one per nation so territories merge into painted regions
     ['neutral','ussr','germany','uk','japan','usa'].forEach(n => {
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       g.setAttribute('id', `blobs-${n}`);
@@ -96,20 +104,11 @@ export class MapRenderer {
       this._blobGroups[n] = g;
     });
 
-    // Sea zone number labels (below territory labels)
-    this._seaGroup = this._makeGroup(svg, 'sea-labels');
-
-    // Static territory labels + capital stars
+    this._seaGroup   = this._makeGroup(svg, 'sea-labels');
     this._labelGroup = this._makeGroup(svg, 'terr-labels');
-
-    // Selection / highlight rings
-    this._selGroup = this._makeGroup(svg, 'selections');
-
-    // Unit token layer
-    this._unitGroup = this._makeGroup(svg, 'unit-tokens');
-
-    // Invisible hit targets (on top so they always receive clicks)
-    this._hitGroup = this._makeGroup(svg, 'hit-targets');
+    this._selGroup   = this._makeGroup(svg, 'selections');
+    this._unitGroup  = this._makeGroup(svg, 'unit-tokens');
+    this._hitGroup   = this._makeGroup(svg, 'hit-targets');
 
     this._drawSeaLabels();
     this._drawStaticLabels();
@@ -129,46 +128,41 @@ export class MapRenderer {
 
   _buildDefs(svg) {
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-
-    // Ocean radial gradient
     defs.innerHTML = `
-      <radialGradient id="ocean-grad" cx="50%" cy="42%" r="60%">
-        <stop offset="0%"   stop-color="#1a3452"/>
-        <stop offset="100%" stop-color="#090e1c"/>
+      <radialGradient id="ocean-grad" cx="50%" cy="42%" r="65%">
+        <stop offset="0%"   stop-color="#1c3858"/>
+        <stop offset="100%" stop-color="${OCEAN_DEEP}"/>
       </radialGradient>
 
-      <!-- Goo/metaball filter — makes adjacent same-nation territory circles merge -->
-      <filter id="goo" x="-25%" y="-25%" width="150%" height="150%"
+      <!-- Goo/metaball: adjacent same-nation blobs merge into painted regions -->
+      <filter id="goo" x="-30%" y="-30%" width="160%" height="160%"
               color-interpolation-filters="sRGB">
-        <feGaussianBlur stdDeviation="20" result="blur"/>
+        <feGaussianBlur stdDeviation="18" result="blur"/>
         <feColorMatrix type="matrix" result="cm"
           values="1 0 0 0 0
                   0 1 0 0 0
                   0 0 1 0 0
-                  0 0 0 26 -10"/>
+                  0 0 0 28 -11"/>
       </filter>
 
-      <!-- Subtle vignette over ocean -->
-      <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
-        <stop offset="60%"  stop-color="transparent"/>
-        <stop offset="100%" stop-color="rgba(0,0,0,0.55)"/>
-      </radialGradient>
+      <!-- Drop shadow for text readability over blobs -->
+      <filter id="txt-shadow" x="-15%" y="-15%" width="130%" height="130%">
+        <feDropShadow dx="0" dy="0" stdDeviation="2"
+          flood-color="rgba(0,0,0,1)" flood-opacity="1"/>
+      </filter>
     `;
     svg.appendChild(defs);
   }
 
-  // Radius of the territory blob circle — larger IPC = larger blob
   _blobR(t) {
-    if (t.ipc === 0) return 32;
-    return Math.max(36, Math.min(78, 20 + t.ipc * 5));
+    if (t.ipc === 0) return 30;
+    return Math.max(34, Math.min(76, 18 + t.ipc * 5));
   }
 
   // ── BLOB TERRITORIES ────────────────────────────────────────────────────────
 
   _updateBlobs() {
     const own = this.state.ownership || {};
-
-    // Clear all blob groups
     Object.values(this._blobGroups).forEach(g => { g.innerHTML = ''; });
 
     Object.values(TERRITORIES).forEach(t => {
@@ -195,15 +189,15 @@ export class MapRenderer {
       const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       txt.setAttribute('x', t.x); txt.setAttribute('y', t.y);
       txt.setAttribute('text-anchor', 'middle'); txt.setAttribute('dominant-baseline', 'middle');
-      txt.setAttribute('font-size', '10'); txt.setAttribute('fill', '#2a5272');
+      txt.setAttribute('font-size', '11'); txt.setAttribute('fill', '#2a5878');
       txt.setAttribute('font-family', 'Arial, sans-serif');
-      txt.setAttribute('font-weight', 'bold');
+      txt.setAttribute('font-weight', 'bold'); txt.setAttribute('pointer-events', 'none');
       txt.textContent = num;
       this._seaGroup.appendChild(txt);
     });
   }
 
-  // ── STATIC TERRITORY LABELS ─────────────────────────────────────────────────
+  // ── TERRITORY LABELS (name + IPC, drawn AFTER blobs so they appear on top) ──
 
   _drawStaticLabels() {
     const capitalIds = new Set(
@@ -213,61 +207,81 @@ export class MapRenderer {
     Object.values(TERRITORIES).forEach(t => {
       if (t.type === 'sea') return;
 
+      const r = this._blobR(t);
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       g.setAttribute('data-lbl', t.id);
 
-      // IPC value (hidden when units present — toggled in _updateIpcVis)
-      if (t.ipc > 0) {
-        const ipcTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        ipcTxt.setAttribute('x', t.x); ipcTxt.setAttribute('y', t.y);
-        ipcTxt.setAttribute('text-anchor', 'middle'); ipcTxt.setAttribute('dominant-baseline', 'middle');
-        ipcTxt.setAttribute('font-size', '12'); ipcTxt.setAttribute('fill', '#c0b880');
-        ipcTxt.setAttribute('font-family', 'Arial, sans-serif');
-        ipcTxt.setAttribute('font-weight', 'bold');
-        ipcTxt.setAttribute('class', 'ipc-val');
-        ipcTxt.textContent = t.ipc;
-        g.appendChild(ipcTxt);
-      }
-
-      // Capital star
+      // ── Capital star (top of blob) ──
       if (capitalIds.has(t.id)) {
         const star = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        star.setAttribute('x', t.x); star.setAttribute('y', t.y - 22);
-        star.setAttribute('text-anchor', 'middle'); star.setAttribute('dominant-baseline', 'middle');
-        star.setAttribute('font-size', '14'); star.setAttribute('fill', '#e8c840');
+        star.setAttribute('x', t.x);
+        star.setAttribute('y', t.y - r * 0.52);
+        star.setAttribute('text-anchor', 'middle');
+        star.setAttribute('dominant-baseline', 'middle');
+        star.setAttribute('font-size', '14');
+        star.setAttribute('fill', '#f0d040');
+        star.setAttribute('filter', 'url(#txt-shadow)');
         star.setAttribute('pointer-events', 'none');
         star.textContent = '★';
         g.appendChild(star);
       }
 
-      // IC badge
+      // ── IC factory badge ──
       if (this.state.industrialComplexes?.[t.id]) {
         const ic = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        ic.setAttribute('x', t.x + 18); ic.setAttribute('y', t.y - 18);
-        ic.setAttribute('font-size', '11'); ic.setAttribute('class', 'ic-badge');
+        ic.setAttribute('x', t.x + r * 0.58);
+        ic.setAttribute('y', t.y - r * 0.55);
+        ic.setAttribute('font-size', '12');
+        ic.setAttribute('pointer-events', 'none');
         ic.textContent = '🏭';
         g.appendChild(ic);
       }
 
-      // Territory name (short)
+      // ── Territory name — INSIDE blob, readable ──
+      const shortName = t.name.length > 14 ? t.name.slice(0, 13) + '…' : t.name;
       const nm = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      nm.setAttribute('x', t.x); nm.setAttribute('y', t.y + this._blobR(t) + 8);
-      nm.setAttribute('text-anchor', 'middle'); nm.setAttribute('dominant-baseline', 'hanging');
-      nm.setAttribute('font-size', '7'); nm.setAttribute('fill', '#8a8a6a');
-      nm.setAttribute('font-family', 'Arial, sans-serif');
+      nm.setAttribute('x', t.x);
+      // Shift up slightly if there's a capital star; shift down if ipc label below
+      const nameY = capitalIds.has(t.id) ? t.y - r * 0.1 : t.y - (t.ipc > 0 ? r * 0.18 : 0);
+      nm.setAttribute('y', nameY);
+      nm.setAttribute('text-anchor', 'middle');
+      nm.setAttribute('dominant-baseline', 'middle');
+      nm.setAttribute('font-size', r >= 50 ? '9' : '7.5');
+      nm.setAttribute('fill', 'rgba(255,248,215,0.95)');
+      nm.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
+      nm.setAttribute('font-weight', 'bold');
+      nm.setAttribute('filter', 'url(#txt-shadow)');
       nm.setAttribute('pointer-events', 'none');
-      nm.textContent = t.name.length > 13 ? t.name.slice(0, 12) + '…' : t.name;
+      nm.textContent = shortName;
       g.appendChild(nm);
+
+      // ── IPC value — INSIDE blob, gold, ALWAYS visible ──
+      if (t.ipc > 0) {
+        const ipc = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        ipc.setAttribute('x', t.x);
+        ipc.setAttribute('y', t.y + r * 0.30);
+        ipc.setAttribute('text-anchor', 'middle');
+        ipc.setAttribute('dominant-baseline', 'middle');
+        ipc.setAttribute('font-size', r >= 50 ? '14' : '11');
+        ipc.setAttribute('fill', '#f8d840');
+        ipc.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
+        ipc.setAttribute('font-weight', 'bold');
+        ipc.setAttribute('filter', 'url(#txt-shadow)');
+        ipc.setAttribute('pointer-events', 'none');
+        ipc.setAttribute('class', 'ipc-val');
+        ipc.textContent = `₊${t.ipc}`;
+        g.appendChild(ipc);
+      }
 
       this._labelGroup.appendChild(g);
     });
   }
 
-  // ── HIT TARGETS (invisible click circles) ────────────────────────────────────
+  // ── HIT TARGETS ──────────────────────────────────────────────────────────────
 
   _drawHitTargets() {
     Object.values(TERRITORIES).forEach(t => {
-      const r = t.type === 'sea' ? 18 : this._blobR(t);
+      const r = t.type === 'sea' ? 22 : this._blobR(t);
       const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       c.setAttribute('cx', t.x); c.setAttribute('cy', t.y);
       c.setAttribute('r', r);    c.setAttribute('fill', 'transparent');
@@ -295,7 +309,6 @@ export class MapRenderer {
         byNation[u.nation][u.type] = (byNation[u.nation][u.type] || 0) + 1;
       });
 
-      // Build slot list: [{nation, type, count}]
       const slots = [];
       Object.entries(byNation).forEach(([nat, types]) => {
         Object.entries(types).forEach(([type, count]) => {
@@ -304,64 +317,67 @@ export class MapRenderer {
       });
 
       const MAX_VISIBLE = 4;
-      const visible = slots.slice(0, MAX_VISIBLE);
-      const totalW  = Math.min(slots.length, MAX_VISIBLE + (slots.length > MAX_VISIBLE ? 1 : 0)) * 22;
-      const startX  = t.x - totalW / 2 + 11;
-      const baseY   = t.y - (t.type === 'sea' ? 10 : 16);
+      const visible     = slots.slice(0, MAX_VISIBLE);
+      const tokenW      = 20;
+      const totalW      = visible.length * tokenW;
+      const startX      = t.x - totalW / 2 + tokenW / 2;
+      // Units sit in the upper portion of the blob
+      const r           = this._blobR(t);
+      const baseY       = t.type === 'sea' ? t.y : t.y - r * 0.35;
 
       visible.forEach(({ nat, type, count }, i) => {
-        const tx    = startX + i * 22;
+        const tx    = startX + i * tokenW;
         const color = NATION_RING[nat] || '#666';
-        const code  = UNIT_CODE[type] || type.slice(0, 2).toUpperCase();
+        const code  = UNIT_CODE[type] || type.slice(0,3).toUpperCase();
 
-        // Token circle
-        this._svgCircle(this._unitGroup, tx, baseY, 10, '#0c1018', color, '1.8');
+        // Outer ring + dark fill
+        this._svgCircle(this._unitGroup, tx, baseY, 9, '#080c12', color, '2');
 
         // Unit code
         const ct = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         ct.setAttribute('x', tx); ct.setAttribute('y', baseY + 0.5);
         ct.setAttribute('text-anchor', 'middle'); ct.setAttribute('dominant-baseline', 'middle');
-        ct.setAttribute('font-size', code.length > 1 ? '5' : '7');
-        ct.setAttribute('fill', '#d8d0b0'); ct.setAttribute('font-weight', 'bold');
+        ct.setAttribute('font-size', code.length > 2 ? '4.5' : '5.5');
+        ct.setAttribute('fill', '#e8ddc0'); ct.setAttribute('font-weight', 'bold');
         ct.setAttribute('font-family', 'Arial, sans-serif');
+        ct.setAttribute('pointer-events', 'none');
         ct.textContent = code;
         this._unitGroup.appendChild(ct);
 
-        // Count badge
+        // Count badge (top-right of token)
         if (count > 1) {
-          const bx = tx + 7, by = baseY - 7;
-          this._svgCircle(this._unitGroup, bx, by, 5, '#c02020', '#0c1018', '0.8');
+          const bx = tx + 6, by = baseY - 6;
+          this._svgCircle(this._unitGroup, bx, by, 4.5, '#c02020', '#080c12', '0.8');
           const bt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
           bt.setAttribute('x', bx); bt.setAttribute('y', by + 0.5);
           bt.setAttribute('text-anchor', 'middle'); bt.setAttribute('dominant-baseline', 'middle');
-          bt.setAttribute('font-size', '5'); bt.setAttribute('fill', '#fff'); bt.setAttribute('font-weight', 'bold');
+          bt.setAttribute('font-size', '4.5'); bt.setAttribute('fill', '#fff'); bt.setAttribute('font-weight', 'bold');
+          bt.setAttribute('pointer-events', 'none');
           bt.textContent = count > 9 ? '9+' : count;
           this._unitGroup.appendChild(bt);
         }
       });
 
-      // "+N more" overflow badge
+      // Overflow "+N" badge
       if (slots.length > MAX_VISIBLE) {
-        const excess = slots.length - MAX_VISIBLE;
-        const bx = startX + MAX_VISIBLE * 22;
-        this._svgCircle(this._unitGroup, bx, baseY, 10, '#252518', '#888', '1');
+        const bx = startX + MAX_VISIBLE * tokenW;
+        this._svgCircle(this._unitGroup, bx, baseY, 9, '#252518', '#888', '1');
         const et = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         et.setAttribute('x', bx); et.setAttribute('y', baseY + 0.5);
         et.setAttribute('text-anchor', 'middle'); et.setAttribute('dominant-baseline', 'middle');
-        et.setAttribute('font-size', '6'); et.setAttribute('fill', '#bbb');
-        et.textContent = `+${excess}`;
+        et.setAttribute('font-size', '5'); et.setAttribute('fill', '#bbb');
+        et.setAttribute('pointer-events', 'none');
+        et.textContent = `+${slots.length - MAX_VISIBLE}`;
         this._unitGroup.appendChild(et);
       }
     });
-
-    // Update IPC label visibility
-    this._updateIpcVis();
   }
 
   _svgCircle(parent, cx, cy, r, fill, stroke, sw) {
     const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', r);
     c.setAttribute('fill', fill); c.setAttribute('stroke', stroke); c.setAttribute('stroke-width', sw);
+    c.setAttribute('pointer-events', 'none');
     parent.appendChild(c);
     return c;
   }
@@ -372,29 +388,31 @@ export class MapRenderer {
     if (!this._selGroup) return;
     this._selGroup.innerHTML = '';
 
-    // Selected territory — dashed white ring
+    // Selected — dashed white ring
     if (this.selectedId) {
       const t = TERRITORIES[this.selectedId];
       if (t) {
-        const r = this._blobR(t) + 7;
+        const r = (t.type === 'sea' ? 22 : this._blobR(t)) + 8;
         const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        ring.setAttribute('cx', t.x); ring.setAttribute('cy', t.y);
-        ring.setAttribute('r',  r);   ring.setAttribute('fill',   'none');
+        ring.setAttribute('cx', t.x); ring.setAttribute('cy', t.y); ring.setAttribute('r', r);
+        ring.setAttribute('fill', 'rgba(255,255,255,0.08)');
         ring.setAttribute('stroke', '#ffffff'); ring.setAttribute('stroke-width', '2.5');
-        ring.setAttribute('stroke-dasharray', '6,3'); ring.setAttribute('opacity', '0.9');
+        ring.setAttribute('stroke-dasharray', '7,3'); ring.setAttribute('pointer-events', 'none');
         this._selGroup.appendChild(ring);
       }
     }
 
-    // Valid move/attack targets — green glow rings
+    // Valid move/attack targets — green glow
     this.validTargets.forEach(tid => {
       const t = TERRITORIES[tid];
       if (!t) return;
-      const r = this._blobR(t) + 5;
+      const r = (t.type === 'sea' ? 22 : this._blobR(t)) + 6;
+      // Glow fill
       const fill = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       fill.setAttribute('cx', t.x); fill.setAttribute('cy', t.y); fill.setAttribute('r', r);
-      fill.setAttribute('fill', 'rgba(40,255,80,0.12)');
-      fill.setAttribute('stroke', '#30e060'); fill.setAttribute('stroke-width', '2');
+      fill.setAttribute('fill', 'rgba(50,255,90,0.18)');
+      fill.setAttribute('stroke', '#40ff60'); fill.setAttribute('stroke-width', '2.5');
+      fill.setAttribute('pointer-events', 'none');
       this._selGroup.appendChild(fill);
     });
 
@@ -403,24 +421,13 @@ export class MapRenderer {
     combats.forEach(tid => {
       const t = TERRITORIES[tid];
       if (!t) return;
-      const r = this._blobR(t) + 5;
+      const r = (t.type === 'sea' ? 22 : this._blobR(t)) + 6;
       const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       ring.setAttribute('cx', t.x); ring.setAttribute('cy', t.y); ring.setAttribute('r', r);
-      ring.setAttribute('fill', 'rgba(255,40,40,0.1)');
-      ring.setAttribute('stroke', '#ff4040'); ring.setAttribute('stroke-width', '2.5');
-      ring.setAttribute('stroke-dasharray', '5,2');
+      ring.setAttribute('fill', 'rgba(255,40,40,0.12)');
+      ring.setAttribute('stroke', '#ff3030'); ring.setAttribute('stroke-width', '2.5');
+      ring.setAttribute('stroke-dasharray', '6,3'); ring.setAttribute('pointer-events', 'none');
       this._selGroup.appendChild(ring);
-    });
-  }
-
-  _updateIpcVis() {
-    Object.values(TERRITORIES).forEach(t => {
-      if (t.type === 'sea') return;
-      const lg = this._labelGroup?.querySelector(`[data-lbl="${t.id}"]`);
-      if (!lg) return;
-      const units = this.state.getUnits(t.id);
-      const ipcEl = lg.querySelector('.ipc-val');
-      if (ipcEl) ipcEl.setAttribute('visibility', units.length > 0 ? 'hidden' : 'visible');
     });
   }
 
@@ -433,16 +440,14 @@ export class MapRenderer {
     this._updateSelections();
   }
 
-  // ── TOUCH / ZOOM ─────────────────────────────────────────────────────────────
+  // ── TOUCH / PAN / ZOOM ───────────────────────────────────────────────────────
 
   _attachInteraction(wrap) {
     let panning = false, panStart = null;
     let tx = 0, ty = 0, scale = 1;
     const svg = this.svg;
 
-    const applyTransform = () => {
-      svg.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
-    };
+    const apply = () => { svg.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`; };
 
     wrap.addEventListener('touchstart', (e) => {
       if (e.touches.length === 1) {
@@ -454,8 +459,7 @@ export class MapRenderer {
           dist: Math.hypot(
             e.touches[0].clientX - e.touches[1].clientX,
             e.touches[0].clientY - e.touches[1].clientY
-          ),
-          scale,
+          ), scale,
         };
       }
     }, { passive: true });
@@ -464,14 +468,14 @@ export class MapRenderer {
       if (panning && e.touches.length === 1) {
         tx = e.touches[0].clientX - panStart.x;
         ty = e.touches[0].clientY - panStart.y;
-        applyTransform();
+        apply();
       } else if (this._pinching && e.touches.length === 2) {
         const dist = Math.hypot(
           e.touches[0].clientX - e.touches[1].clientX,
           e.touches[0].clientY - e.touches[1].clientY
         );
-        scale = Math.max(0.4, Math.min(4, this._pinchStart.scale * (dist / this._pinchStart.dist)));
-        applyTransform();
+        scale = Math.max(0.4, Math.min(5, this._pinchStart.scale * (dist / this._pinchStart.dist)));
+        apply();
       }
     }, { passive: true });
 
@@ -480,7 +484,7 @@ export class MapRenderer {
       if (e.touches.length < 2) this._pinching = false;
     }, { passive: true });
 
-    wrap.addEventListener('dblclick', () => { tx = 0; ty = 0; scale = 1; applyTransform(); });
+    wrap.addEventListener('dblclick', () => { tx = 0; ty = 0; scale = 1; apply(); });
   }
 }
 
@@ -494,6 +498,5 @@ const MAP_CSS = `
     width: 100%; height: 100%;
     display: block; transform-origin: top left;
   }
-  .hit-target  { cursor: pointer; }
-  .hit-target:hover { opacity: 0.01; }
+  .hit-target { cursor: pointer; }
 `;
