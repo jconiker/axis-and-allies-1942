@@ -8,25 +8,25 @@ window.__TERRITORIES = TERRITORIES;
 // Colors tuned to match the App Store reference screenshots:
 // lighter, more desaturated tones — aged paper/cartographic style
 const NATION_FILL = {
-  ussr:      '#bf9888',  // muted dusty rose / terracotta (much lighter)
-  germany:   '#7090a8',  // medium steel blue-gray (lighter, cleaner)
-  uk:        '#909848',  // olive / khaki
-  japan:     '#c8a050',  // warm amber-tan
-  usa:       '#8a9c38',  // yellow-olive
-  australia: '#508040',  // medium olive green
-  neutral:   '#c8c0a0',  // light cream / parchment
+  ussr:      '#b88860',  // warm terracotta-brown (matches reference: clay/earthy tone)
+  germany:   '#6888a0',  // medium steel blue-gray
+  uk:        '#7a8830',  // dark olive-green (distinct from USA)
+  japan:     '#c89848',  // warm amber-tan
+  usa:       '#90a840',  // brighter yellow-green (distinct from UK)
+  australia: '#4e7838',  // medium forest green
+  neutral:   '#c0b890',  // warm parchment / light beige
 };
 const NATION_BORDER = {
-  ussr:      '#906870',  // darker dusty rose
-  germany:   '#4a6880',  // darker steel blue
-  uk:        '#5a6428',  // darker olive
-  japan:     '#987030',  // darker amber
-  usa:       '#506820',  // darker yellow-olive
-  australia: '#305828',  // darker olive green
-  neutral:   '#9a9070',  // medium warm gray-brown
+  ussr:      '#8a6040',  // dark terracotta
+  germany:   '#3a6078',  // dark steel blue
+  uk:        '#485018',  // very dark olive
+  japan:     '#906820',  // dark amber
+  usa:       '#587020',  // dark yellow-green
+  australia: '#285818',  // dark forest green
+  neutral:   '#908860',  // warm gray-brown
 };
 
-const OCEAN_COLOR = '#607888';  // medium steel blue-gray (vintage map ocean)
+const OCEAN_COLOR = '#507080';  // medium-deep steel blue (vintage map ocean)
 const VB_W = 1400, VB_H = 780;
 
 // Unit symbols — short codes + Unicode for air units
@@ -48,13 +48,13 @@ const UNIT_CODE = {
 
 // Darker token background color per nation (tinted faction — stays dark for contrast)
 const NATION_TOKEN_BG = {
-  ussr:      '#6a3830',  // dark dusty crimson
-  germany:   '#283858',  // dark slate blue
-  uk:        '#484e18',  // dark olive
-  japan:     '#6a4818',  // dark amber-brown
-  usa:       '#3a5010',  // dark yellow-olive
-  australia: '#204820',  // dark olive green
-  neutral:   '#504830',  // dark warm tan
+  ussr:      '#5a3018',  // dark terracotta
+  germany:   '#203050',  // dark navy-blue
+  uk:        '#383c10',  // very dark olive
+  japan:     '#604010',  // dark amber-brown
+  usa:       '#304810',  // dark yellow-green
+  australia: '#183818',  // dark forest green
+  neutral:   '#484030',  // dark warm tan
 };
 
 // ── VORONOI GEOMETRY ─────────────────────────────────────────────────────────
@@ -236,11 +236,11 @@ export class MapRenderer {
   _buildDefs(svg) {
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     defs.innerHTML = `
-      <!-- Vintage map ocean: medium steel blue-gray, lighter cartographic style -->
+      <!-- Ocean: medium-deep steel blue, richer cartographic style -->
       <radialGradient id="ocean-grad" cx="52%" cy="40%" r="78%">
-        <stop offset="0%"   stop-color="#8aacbe"/>
-        <stop offset="50%"  stop-color="#7098ae"/>
-        <stop offset="100%" stop-color="#527888"/>
+        <stop offset="0%"   stop-color="#7898ac"/>
+        <stop offset="50%"  stop-color="#608090"/>
+        <stop offset="100%" stop-color="#486878"/>
       </radialGradient>
       <!-- Subtle paper grain for territories — vintage map feel -->
       <filter id="paper" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
@@ -942,7 +942,7 @@ const MAP_CSS = `
   .map-wrap {
     width: 100%; height: 100%;
     overflow: hidden; position: relative;
-    background: #527888;
+    background: #486878;
     cursor: grab;
     user-select: none;
   }

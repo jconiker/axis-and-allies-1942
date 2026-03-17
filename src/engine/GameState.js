@@ -271,18 +271,36 @@ export class GameState {
 
   checkVictory() {
     try {
-      const capitals = Object.values(NATIONS).filter(n => n.capital).map(n => ({ nation: n.id, capital: n.capital, side: n.side }));
-      const axisCapsCaptured = capitals.filter(({ capital, side }) =>
-        side === 'allies' && ['germany','japan'].includes(this.ownership[capital])
-      ).length;
-      const alliedCapsCaptured = capitals.filter(({ capital, side }) =>
-        side === 'axis' && ['ussr','uk','usa'].includes(this.ownership[capital])
-      ).length;
+      // A&A 1942 Second Edition: 10 Victory Cities on the map.
+      // Axis wins by controlling 9+ VCs, Allies win by controlling 9+ VCs.
+      // VCs: Berlin, Rome, Paris (axis), London, Moscow, Washington,
+      //      Leningrad, Calcutta, Sydney, Tokyo
+      const ALL_VCS = [
+        'germany',       // Berlin (Axis capital)
+        'western_europe',// Rome/Paris (Axis)
+        'southern_europe',// (Axis)
+        'japan',         // Tokyo (Axis capital)
+        'manchuria',     // (Axis expansion)
+        'russia',        // Moscow (Allied capital)
+        'united_kingdom',// London (Allied capital)
+        'eastern_us',    // Washington (Allied capital)
+        'india',         // Calcutta (Allied)
+        'australia',     // Sydney (Allied capital)
+      ];
+      const AXIS_WIN_THRESHOLD   = 9;  // Axis needs 9/10 VCs
+      const ALLIES_WIN_THRESHOLD = 9;  // Allies win by recapturing 9/10 VCs
 
-      // A&A 1942: capture 6+ victory cities / all capitals
-      const VICTORY_THRESHOLD = Object.values(NATIONS).filter(n => n.capital && n.side !== 'neutral').length;
-      if (axisCapsCaptured >= VICTORY_THRESHOLD) this.winner = 'axis';
-      if (alliedCapsCaptured >= VICTORY_THRESHOLD) this.winner = 'allies';
+      let axisVCs = 0, alliesVCs = 0;
+      ALL_VCS.forEach(tid => {
+        const owner = this.ownership[tid];
+        const nd = Object.values(NATIONS).find(n => n.id === owner);
+        if (!nd) return;
+        if (nd.side === 'axis')   axisVCs++;
+        if (nd.side === 'allies') alliesVCs++;
+      });
+
+      if (axisVCs   >= AXIS_WIN_THRESHOLD)   this.winner = 'axis';
+      if (alliesVCs >= ALLIES_WIN_THRESHOLD) this.winner = 'allies';
       return this.winner;
     } catch (e) {
       console.error('[GameState] checkVictory failed:', e);

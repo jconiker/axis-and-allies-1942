@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "axisandallies",
+      "name": "axis-and-allies",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 5002
+      "port": 5010
     }
   ]
 }
