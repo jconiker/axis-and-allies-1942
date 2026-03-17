@@ -327,7 +327,11 @@ export class App {
         this.hud.render();
       } catch {}
     });
+    // game_over fires on TurnEngine's bus (not state) — wire both to be safe
     this.state.on('game_over', (data) => {
+      try { this._showVictoryScreen(data.winner); } catch {}
+    });
+    this.turnEngine.on('game_over', (data) => {
       try { this._showVictoryScreen(data.winner); } catch {}
     });
 

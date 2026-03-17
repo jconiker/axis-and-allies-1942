@@ -429,18 +429,29 @@ export class MapRenderer {
       nm.textContent = shortName;
       g.appendChild(nm);
 
-      // IPC value — plain number, yellow, visible but not dominant
+      // IPC value — circled badge, gold on dark background
       if (t.ipc > 0) {
+        const badgeY = capitalIds.has(t.id) ? ly + r * 0.42 : ly + r * 0.38;
+        const badgeR = isLarge ? 7 : 5.5;
+        // Dark circle behind the number
+        const circle = this._svgEl('circle');
+        circle.setAttribute('cx', lx); circle.setAttribute('cy', badgeY);
+        circle.setAttribute('r', badgeR);
+        circle.setAttribute('fill', 'rgba(10,8,2,0.65)');
+        circle.setAttribute('stroke', '#c8a030');
+        circle.setAttribute('stroke-width', '0.9');
+        circle.setAttribute('pointer-events', 'none');
+        g.appendChild(circle);
+
         const ipc = this._svgEl('text');
         ipc.setAttribute('x', lx);
-        ipc.setAttribute('y', capitalIds.has(t.id) ? ly + r * 0.42 : ly + r * 0.38);
+        ipc.setAttribute('y', badgeY + 0.5);
         ipc.setAttribute('text-anchor', 'middle');
         ipc.setAttribute('dominant-baseline', 'middle');
-        ipc.setAttribute('font-size', isLarge ? '11' : '8.5');
+        ipc.setAttribute('font-size', isLarge ? '9' : '7');
         ipc.setAttribute('fill', '#f0cc38');
         ipc.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
         ipc.setAttribute('font-weight', 'bold');
-        ipc.setAttribute('filter', 'url(#txt-sh)');
         ipc.setAttribute('class', 'ipc-val');
         ipc.textContent = String(t.ipc);
         g.appendChild(ipc);

@@ -105,9 +105,19 @@ export class AIController {
       const territory = TERRITORIES[tid];
       if (!territory) return;
 
+      const LAND_TYPES  = new Set(['infantry','artillery','armor','antiair']);
+      const NAVAL_TYPES = new Set(['submarine','destroyer','cruiser','carrier','battleship','transport']);
+      const hasLand  = myUnits.some(u => LAND_TYPES.has(u.type));
+      const hasNaval = myUnits.some(u => NAVAL_TYPES.has(u.type));
+
       territory.adjacent.forEach(adjId => {
         const adjTerritory = TERRITORIES[adjId];
-        if (!adjTerritory || adjTerritory.type === 'sea') return;
+        if (!adjTerritory) return;
+
+        // Land units can't enter sea; naval units can't enter land
+        if (hasLand  && !hasNaval && adjTerritory.type === 'sea')  return;
+        if (hasNaval && !hasLand  && adjTerritory.type !== 'sea')  return;
+
         const adjOwner = this.state.ownership[adjId];
         if (!adjOwner || adjOwner === nation || !areEnemies(adjOwner, nation)) return;
 
@@ -117,8 +127,11 @@ export class AIController {
         // Attack if we have > 60% odds or it's a capital
         const isCapital = Object.values(NATIONS).some(n => n.capital === adjId);
         if (odds > 0.60 || (isCapital && odds > 0.40)) {
-          // Move half our attacking units (keep some to defend)
-          const attackWith = myUnits.slice(0, Math.ceil(myUnits.length * 0.7));
+          // Move 70% of attacking units (keep some to defend)
+          const landAttackers  = hasLand  ? myUnits.filter(u => LAND_TYPES.has(u.type))  : [];
+          const navalAttackers = hasNaval ? myUnits.filter(u => NAVAL_TYPES.has(u.type)) : [];
+          const pool = adjTerritory.type === 'sea' ? navalAttackers : landAttackers;
+          const attackWith = pool.slice(0, Math.ceil(pool.length * 0.7));
           if (attackWith.length > 0) {
             this.state.moveUnits(attackWith.map(u => u.id), tid, adjId);
           }
@@ -150,14 +163,23 @@ export class AIController {
 
         const result = CombatEngine.resolveCombatRound(attackers, defenders, isFirstRound);
 
+        // Apply AA gun casualties first (air units shot down before main combat)
+        if (result.aaResults?.targets?.length > 0) {
+          this.state.units[tid] = this.state.units[tid].filter(u => !result.aaResults.targets.includes(u.id));
+        }
+
+        // Re-fetch attackers after AA removal
+        const survivingAttackers = this.state.getUnits(tid, nation);
+
         // Apply defender hits to attackers
-        const attackerCasualties = CombatEngine.selectCasualties(attackers, result.defenderHits, true);
+        const attackerCasualties = CombatEngine.selectCasualties(survivingAttackers, result.defenderHits, true);
         attackerCasualties.filter(c => c.killed).forEach(c => {
           this.state.units[tid] = this.state.units[tid].filter(u => u.id !== c.unit.id);
         });
 
         // Apply attacker hits to defenders
-        const defenderCasualties = CombatEngine.selectCasualties(defenders, result.attackerHits, false);
+        const currentDefenders = this.state.getUnits(tid).filter(u => u.nation !== nation);
+        const defenderCasualties = CombatEngine.selectCasualties(currentDefenders, result.attackerHits, false);
         defenderCasualties.filter(c => c.killed).forEach(c => {
           this.state.units[tid] = this.state.units[tid].filter(u => u.id !== c.unit.id);
         });
@@ -203,9 +225,21 @@ export class AIController {
     const pending = [...this.state.pendingPlacements[nation]];
     const capital = NATIONS[nation].capital;
 
-    // Place all units at capital (simplified)
+    // Find all ICs owned by this nation
+    const myICs = Object.entries(this.state.industrialComplexes)
+      .filter(([, owner]) => owner === nation)
+      .map(([tid]) => tid);
+
+    // Prefer capital for placement; fall back to any owned IC
+    const primaryIC = myICs.includes(capital) ? capital : (myICs[0] || capital);
+
     pending.forEach(unitType => {
-      this.state.placeUnit(unitType, nation, capital);
+      if (unitType === 'industrial_complex') {
+        // AI doesn't build ICs (too complex to place correctly)
+        this.state.refundUnit(unitType, nation);
+        return;
+      }
+      this.state.placeUnit(unitType, nation, primaryIC);
     });
   }
 
