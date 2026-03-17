@@ -259,6 +259,7 @@ export class App {
     this.movingUnits = [];
     this.validTargets = [];
     this.map.clearSelection();
+    this.map.clearArrows();
     this.turnEngine.advancePhase();
   }
 
@@ -271,6 +272,7 @@ export class App {
         this.selectedTerritory = null;
         this.movingUnits = [];
         this.validTargets = [];
+        this.map?.clearArrows();
         this.hud.render();
         // Re-wire rules button (HUD innerHTML is rebuilt each render)
         document.getElementById('btn-rules')?.addEventListener('click', () => this.rulesPanel?.show());
@@ -427,7 +429,10 @@ export class App {
     } else {
       // Second click — move to target
       if (this.validTargets.includes(territoryId)) {
-        this.state.moveUnits(this.movingUnits, this.selectedTerritory, territoryId);
+        const fromId = this.selectedTerritory;
+        this.state.moveUnits(this.movingUnits, fromId, territoryId);
+        // Draw movement arrow to record the move visually
+        this.map.showMoveArrow(fromId, territoryId);
       }
       this.selectedTerritory = null;
       this.movingUnits = [];

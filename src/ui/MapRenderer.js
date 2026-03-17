@@ -208,6 +208,9 @@ export class MapRenderer {
     // Invisible click targets on top
     this._hitGroup = this._makeGroup(svg, 'hit-targets');
 
+    // Movement arrow layer — drawn above selections, below units
+    this._arrowGroup = this._makeGroup(svg, 'move-arrows');
+
     this._drawTerritories();
     this._drawSeaLabels();
     this._drawStaticLabels();
@@ -235,6 +238,11 @@ export class MapRenderer {
         <feBlend in="SourceGraphic" in2="gray" mode="multiply" result="blend"/>
         <feComposite in="blend" in2="SourceGraphic" operator="in"/>
       </filter>
+      <!-- Arrowhead marker for movement arrows -->
+      <marker id="arrow-head" markerWidth="6" markerHeight="6" refX="5" refY="3"
+              orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L0,6 L6,3 Z" fill="#f0c840" opacity="0.9"/>
+      </marker>
       <!-- Text shadow for label readability -->
       <filter id="txt-sh" x="-25%" y="-25%" width="150%" height="150%">
         <feDropShadow dx="0" dy="0" stdDeviation="2"
@@ -631,6 +639,43 @@ export class MapRenderer {
     });
   }
 
+  // ── MOVEMENT ARROWS ──────────────────────────────────────────────────────────
+
+  /** Draw a dashed arrow from fromId → toId (used when player selects a move target) */
+  showMoveArrow(fromId, toId) {
+    if (!this._arrowGroup) return;
+    const tFrom = TERRITORIES[fromId];
+    const tTo   = TERRITORIES[toId];
+    if (!tFrom || !tTo) return;
+    const [x1, y1] = this._getTerrCenter(tFrom);
+    const [x2, y2] = this._getTerrCenter(tTo);
+
+    // Shorten the line so it doesn't overlap territory labels
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const trim = 14; // px to trim at each end
+    const sx = x1 + dx / len * trim;
+    const sy = y1 + dy / len * trim;
+    const ex = x2 - dx / len * trim;
+    const ey = y2 - dy / len * trim;
+
+    const line = this._svgEl('line');
+    line.setAttribute('x1', sx); line.setAttribute('y1', sy);
+    line.setAttribute('x2', ex); line.setAttribute('y2', ey);
+    line.setAttribute('stroke', '#f0c840');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-dasharray', '6,4');
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('marker-end', 'url(#arrow-head)');
+    line.setAttribute('opacity', '0.85');
+    line.setAttribute('pointer-events', 'none');
+    this._arrowGroup.appendChild(line);
+  }
+
+  clearArrows() {
+    if (this._arrowGroup) this._arrowGroup.innerHTML = '';
+  }
+
   // ── UPDATE ───────────────────────────────────────────────────────────────────
 
   _updateICIcons() {
@@ -767,14 +812,16 @@ const MAP_CSS = `
     position: absolute; inset: 0;
     pointer-events: none; z-index: 10;
     background:
-      /* top edge */
-      linear-gradient(to bottom, rgba(0,3,12,0.65) 0%, transparent 14%),
-      /* bottom edge */
-      linear-gradient(to top, rgba(0,3,12,0.75) 0%, transparent 16%),
+      /* top edge — dark */
+      linear-gradient(to bottom, rgba(0,3,12,0.70) 0%, transparent 14%),
+      /* bottom fog — vintage map cloud/fog bank */
+      linear-gradient(to top, rgba(210,200,175,0.88) 0%, rgba(160,150,120,0.45) 6%, transparent 16%),
+      /* bottom dark under fog */
+      linear-gradient(to top, rgba(0,3,12,0.55) 0%, transparent 8%),
       /* left edge */
-      linear-gradient(to right, rgba(0,3,12,0.58) 0%, transparent 11%),
+      linear-gradient(to right, rgba(0,3,12,0.60) 0%, transparent 11%),
       /* right edge */
-      linear-gradient(to left, rgba(0,3,12,0.58) 0%, transparent 11%);
+      linear-gradient(to left, rgba(0,3,12,0.60) 0%, transparent 11%);
   }
   .map-svg {
     width: 100%; height: 100%;
