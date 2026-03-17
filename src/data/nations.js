@@ -24,6 +24,11 @@ export const NATIONS = {
     color: '#4a7c3f', capital: 'eastern_us', turnOrder: 5, startingIPC: 42,
     flag: '🇺🇸', textColor: '#ffffff'
   },
+  australia: {
+    id: 'australia', name: 'Australia', side: 'allies',
+    color: '#2a9a68', capital: 'australia', turnOrder: 6, startingIPC: 10,
+    flag: '🇦🇺', textColor: '#ffffff'
+  },
   // Neutral — not a player nation, but territories can be owned by 'neutral'
   neutral: {
     id: 'neutral', name: 'Neutral', side: 'neutral',
@@ -32,8 +37,8 @@ export const NATIONS = {
   }
 };
 
-export const TURN_ORDER = ['ussr', 'germany', 'uk', 'japan', 'usa'];
-export const ALLIES = ['ussr', 'uk', 'usa'];
+export const TURN_ORDER = ['ussr', 'germany', 'uk', 'japan', 'usa', 'australia'];
+export const ALLIES = ['ussr', 'uk', 'usa', 'australia'];
 export const AXIS = ['germany', 'japan'];
 
 /** Return the side ('allies'|'axis'|'neutral') for a given nation id */

@@ -15,15 +15,17 @@ const ALL_VCS = [
   'germany', 'western_europe', 'southern_europe', 'japan', 'manchuria',
   'russia',  'united_kingdom', 'eastern_us',       'india', 'australia',
 ];
-const AXIS_WIN = 9; // Axis needs 9/10 to win
+const AXIS_WIN  = 9;  // Axis needs 9/10 to win
+const ALLY_WIN  = ALL_VCS.length - AXIS_WIN + 1; // = 2 (allies win if axis can't reach 9)
 
 // Faction symbols matching the App Store style
 const NAT_SYMBOL = {
-  ussr:    '★',
-  germany: '✚',
-  uk:      '⊕',
-  japan:   '✿',
-  usa:     '★',
+  ussr:      '★',
+  germany:   '✚',
+  uk:        '⊕',
+  japan:     '✿',
+  usa:       '★',
+  australia: '🦘',
 };
 
 export class HUD {
@@ -104,9 +106,9 @@ export class HUD {
               return `<span class="h-vc-sq ${side}"></span>`;
             }).join('')}
           </div>
-          <span class="h-vc-count allies">ALLIES ${alliedVC}/${ALL_VCS.length - AXIS_WIN + 1}</span>
+          <span class="h-vc-count allies">ALLIES ${alliedVC}</span>
         </div>
-        <div class="h-vc-label">VICTORY CITIES</div>
+        <div class="h-vc-label">VICTORY CITIES · AXIS WINS AT ${AXIS_WIN}</div>
       </div>
 
       <!-- Current-nation IPC -->

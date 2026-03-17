@@ -10,7 +10,7 @@ export const SCENARIO_1942 = {
 
   // Initial IPC overrides (if different from NATIONS.startingIPC)
   ipc: {
-    ussr: 24, germany: 40, uk: 31, japan: 30, usa: 42
+    ussr: 24, germany: 40, uk: 31, japan: 30, usa: 42, australia: 10
   },
 
   // units: { territoryId: [ {nation, type, count}, ... ] }
@@ -50,9 +50,11 @@ export const SCENARIO_1942 = {
     anglo_egypt_sudan:[ u('uk','infantry',1) ],
     trans_jordan:     [ u('uk','infantry',1) ],
     persia:           [ u('uk','infantry',1) ],
-    australia:        [ u('uk','infantry',3), u('uk','fighter',1) ],
     new_zealand:      [ u('uk','infantry',1) ],
-    new_guinea:       [ u('uk','infantry',1) ],
+
+    // ── AUSTRALIA LAND ──
+    australia:        [ u('australia','infantry',3), u('australia','fighter',1) ],
+    new_guinea:       [ u('australia','infantry',1) ],
 
     // ── JAPAN LAND ──
     japan:            [ u('japan','infantry',3), u('japan','antiair',1), u('japan','fighter',3), u('japan','bomber',2) ],

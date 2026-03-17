@@ -83,11 +83,12 @@ export class App {
 
   _showSetupScreen() {
     const NAT_INFO = {
-      ussr:    { sym: '★', label: 'SOVIET UNION', side: 'allies', color: '#c02828' },
-      germany: { sym: '✚', label: 'GERMANY',      side: 'axis',   color: '#6090a0' },
-      uk:      { sym: '⊕', label: 'U.K.',          side: 'allies', color: '#c88018' },
-      japan:   { sym: '✿', label: 'JAPAN',         side: 'axis',   color: '#d0a020' },
-      usa:     { sym: '★', label: 'U.S.A.',         side: 'allies', color: '#3a8030' },
+      ussr:      { sym: '★',  label: 'SOVIET UNION', side: 'allies', color: '#c02828' },
+      germany:   { sym: '✚',  label: 'GERMANY',      side: 'axis',   color: '#6090a0' },
+      uk:        { sym: '⊕',  label: 'U.K.',          side: 'allies', color: '#c88018' },
+      japan:     { sym: '✿',  label: 'JAPAN',         side: 'axis',   color: '#d0a020' },
+      usa:       { sym: '★',  label: 'U.S.A.',         side: 'allies', color: '#3a8030' },
+      australia: { sym: '🦘', label: 'AUSTRALIA',     side: 'allies', color: '#2a9a68' },
     };
 
     this._showOverlay(`
@@ -113,7 +114,7 @@ export class App {
 
           <div class="ns-side">
             <div class="ns-side-label allies-lbl">ALLIES</div>
-            ${['ussr','uk','usa'].map(n => `
+            ${['ussr','uk','usa','australia'].map(n => `
               <div class="ns-card ${n}" data-nation="${n}">
                 <div class="ns-card-sym" style="color:${NAT_INFO[n].color}">${NAT_INFO[n].sym}</div>
                 <div class="ns-card-name">${NAT_INFO[n].label}</div>
@@ -172,7 +173,7 @@ export class App {
     document.getElementById('btn-start').addEventListener('click', () => {
       if (playerNations.size === 0) {
         // Default: play as Allies if nothing chosen
-        playerNations.add('ussr'); playerNations.add('uk'); playerNations.add('usa');
+        playerNations.add('ussr'); playerNations.add('uk'); playerNations.add('usa'); playerNations.add('australia');
       }
       this._startNewGame([...playerNations], difficulty);
     });

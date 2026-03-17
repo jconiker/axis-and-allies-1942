@@ -1,27 +1,30 @@
 import { TERRITORIES } from '../data/territories.js';
 import { NATIONS } from '../data/nations.js';
+import { TERRITORY_PATHS } from '../data/territory-paths.js';
 
 window.__TERRITORIES = TERRITORIES;
 
-// ── NATION COLORS ────────────────────────────────────────────────────────────
+// ── NATION COLORS — vintage board-game map palette ──────────────────────────
 const NATION_FILL = {
-  ussr:    '#8a1818',
-  germany: '#2a4858',
-  uk:      '#7a5008',
-  japan:   '#a07010',
-  usa:     '#1c4a18',
-  neutral: '#4a4830',
+  ussr:      '#a85848',  // dusty terra cotta / salmon (warm pinkish-red)
+  germany:   '#5070a0',  // medium slate blue (not too bright)
+  uk:        '#a88020',  // golden amber (slightly more gold)
+  japan:     '#b87020',  // amber-brown (less orange, more warm brown)
+  usa:       '#486840',  // muted sage green (darker, less bright)
+  australia: '#2a9068',  // sea green / teal (distinct from USA)
+  neutral:   '#ccc098',  // warm beige / parchment
 };
 const NATION_BORDER = {
-  ussr:    '#c02828',
-  germany: '#5898b0',
-  uk:      '#d89020',
-  japan:   '#d8b020',
-  usa:     '#38a030',
-  neutral: '#8a8860',
+  ussr:      '#783828',  // darker terra cotta
+  germany:   '#304878',  // darker slate
+  uk:        '#786010',  // darker gold
+  japan:     '#885010',  // darker amber-brown
+  usa:       '#285820',  // darker sage
+  australia: '#156848',  // darker sea green
+  neutral:   '#8a7a60',  // medium brown
 };
 
-const OCEAN_COLOR = '#0b1a30';
+const OCEAN_COLOR = '#7898a8';  // soft steel blue (vintage map ocean)
 const VB_W = 1400, VB_H = 780;
 
 const UNIT_CODE = {
@@ -29,6 +32,17 @@ const UNIT_CODE = {
   fighter:'FTR', bomber:'BMB',
   submarine:'SUB', destroyer:'DD', cruiser:'CA',
   carrier:'CV', battleship:'BB', transport:'TRN',
+};
+
+// Darker token background color per nation (tinted faction)
+const NATION_TOKEN_BG = {
+  ussr:      '#5a2018',  // dark crimson
+  germany:   '#202848',  // dark slate
+  uk:        '#604808',  // dark gold
+  japan:     '#5a3808',  // dark amber-brown
+  usa:       '#1e3818',  // dark sage
+  australia: '#0e5838',  // dark teal
+  neutral:   '#403828',  // dark tan
 };
 
 // ── VORONOI GEOMETRY ─────────────────────────────────────────────────────────
@@ -197,18 +211,25 @@ export class MapRenderer {
   _buildDefs(svg) {
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     defs.innerHTML = `
-      <radialGradient id="ocean-grad" cx="50%" cy="45%" r="70%">
-        <stop offset="0%"   stop-color="#1c3858"/>
-        <stop offset="100%" stop-color="#080f1c"/>
+      <!-- Vintage map ocean: soft steel blue, slightly lighter at center -->
+      <radialGradient id="ocean-grad" cx="52%" cy="40%" r="78%">
+        <stop offset="0%"   stop-color="#8ab4c8"/>
+        <stop offset="60%"  stop-color="#7098b0"/>
+        <stop offset="100%" stop-color="#4e7888"/>
       </radialGradient>
-      <!-- Text shadow filter for readability -->
-      <filter id="txt-sh" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="0" stdDeviation="2.5"
-          flood-color="rgba(0,0,0,1)" flood-opacity="1"/>
+      <!-- Text shadow for label readability -->
+      <filter id="txt-sh" x="-25%" y="-25%" width="150%" height="150%">
+        <feDropShadow dx="0" dy="0" stdDeviation="2"
+          flood-color="rgba(0,0,0,0.85)" flood-opacity="1"/>
       </filter>
-      <!-- Glow filter for selected territory -->
+      <!-- Subtle territory shadow for depth -->
+      <filter id="terr-sh" x="-5%" y="-5%" width="110%" height="110%">
+        <feDropShadow dx="1" dy="1" stdDeviation="1.5"
+          flood-color="rgba(0,0,0,0.3)" flood-opacity="1"/>
+      </filter>
+      <!-- Glow for selected territory -->
       <filter id="sel-glow" x="-30%" y="-30%" width="160%" height="160%">
-        <feGaussianBlur stdDeviation="4" result="blur"/>
+        <feGaussianBlur stdDeviation="3" result="blur"/>
         <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
       </filter>
     `;
@@ -226,6 +247,21 @@ export class MapRenderer {
 
   // ── TERRITORY POLYGONS ───────────────────────────────────────────────────────
 
+  /** Returns the SVG path d-string for a territory: geographic if available, else Voronoi */
+  _getTerrPath(tid) {
+    const geo = TERRITORY_PATHS[tid];
+    if (geo?.path) return geo.path;
+    const cell = this._cells[tid];
+    return cell ? cellToPath(cell) : null;
+  }
+
+  /** Returns the visual centre [cx, cy] for a territory: geographic if available, else territory centroid */
+  _getTerrCenter(t) {
+    const geo = TERRITORY_PATHS[t.id];
+    if (geo?.cx) return [geo.cx, geo.cy];
+    return [t.x, t.y];
+  }
+
   _drawTerritories() {
     this._terrGroup.innerHTML = '';
     this._terrPaths = {};
@@ -233,18 +269,18 @@ export class MapRenderer {
 
     Object.values(TERRITORIES).forEach(t => {
       if (t.type === 'sea') return;
-      const cell = this._cells[t.id];
-      if (!cell) return;
+      const d = this._getTerrPath(t.id);
+      if (!d) return;
 
       const owner = own[t.id] || 'neutral';
       const fill  = NATION_FILL[owner]   || NATION_FILL.neutral;
       const stroke = NATION_BORDER[owner] || NATION_BORDER.neutral;
 
       const path = this._svgEl('path');
-      path.setAttribute('d', cellToPath(cell));
+      path.setAttribute('d', d);
       path.setAttribute('fill', fill);
       path.setAttribute('stroke', stroke);
-      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('stroke-width', '1.2');
       path.setAttribute('stroke-linejoin', 'round');
       path.setAttribute('data-id', t.id);
       this._terrGroup.appendChild(path);
@@ -274,8 +310,8 @@ export class MapRenderer {
       txt.setAttribute('x', t.x); txt.setAttribute('y', t.y);
       txt.setAttribute('text-anchor', 'middle');
       txt.setAttribute('dominant-baseline', 'middle');
-      txt.setAttribute('font-size', '11');
-      txt.setAttribute('fill', '#2a5878');
+      txt.setAttribute('font-size', '10');
+      txt.setAttribute('fill', 'rgba(30,70,100,0.65)');
       txt.setAttribute('font-family', 'Arial, sans-serif');
       txt.setAttribute('font-weight', 'bold');
       txt.setAttribute('pointer-events', 'none');
@@ -285,6 +321,7 @@ export class MapRenderer {
   }
 
   // ── TERRITORY LABELS (name + IPC, drawn on top of polygons) ────────────────
+  // Styled to match vintage board-game aesthetic: minimal text, subtle labels
 
   _drawStaticLabels() {
     const capitalIds = new Set(
@@ -294,62 +331,71 @@ export class MapRenderer {
     Object.values(TERRITORIES).forEach(t => {
       if (t.type === 'sea') return;
 
+      const [lx, ly] = this._getTerrCenter(t);
+
       const g = this._svgEl('g');
       g.setAttribute('data-lbl', t.id);
       g.setAttribute('pointer-events', 'none');
 
       // Approximate territory visual radius for layout
-      const r = t.ipc === 0 ? 22 : Math.max(28, Math.min(60, 16 + t.ipc * 4));
+      const r = t.ipc === 0 ? 16 : Math.max(20, Math.min(50, 12 + t.ipc * 3.2));
+      const isLarge = r >= 36;
 
-      // Capital star
+      // Capital star — small, gold
       if (capitalIds.has(t.id)) {
         const star = this._svgEl('text');
-        star.setAttribute('x', t.x); star.setAttribute('y', t.y - r * 0.5);
+        star.setAttribute('x', lx); star.setAttribute('y', ly - r * 0.5);
         star.setAttribute('text-anchor', 'middle');
         star.setAttribute('dominant-baseline', 'middle');
-        star.setAttribute('font-size', '14'); star.setAttribute('fill', '#f0d040');
+        star.setAttribute('font-size', isLarge ? '11' : '9');
+        star.setAttribute('fill', '#e8c838');
         star.setAttribute('filter', 'url(#txt-sh)');
         star.textContent = '★';
         g.appendChild(star);
       }
 
-      // Factory badge
+      // Factory icon — small, right of center
       if (this.state.industrialComplexes?.[t.id]) {
         const ic = this._svgEl('text');
-        ic.setAttribute('x', t.x + r * 0.5); ic.setAttribute('y', t.y - r * 0.5);
-        ic.setAttribute('font-size', '12');
-        ic.textContent = '🏭';
+        ic.setAttribute('x', lx + (isLarge ? 12 : 9));
+        ic.setAttribute('y', ly - r * 0.45);
+        ic.setAttribute('font-size', isLarge ? '9' : '7.5');
+        ic.setAttribute('opacity', '0.85');
+        ic.textContent = '⚙';
         g.appendChild(ic);
       }
 
-      // Territory name
-      const shortName = t.name.length > 14 ? t.name.slice(0, 13) + '…' : t.name;
+      // Territory name — small, semi-transparent, uppercase
+      const maxChars = isLarge ? 18 : 13;
+      const shortName = t.name.length > maxChars ? t.name.slice(0, maxChars - 1) + '…' : t.name;
       const nm = this._svgEl('text');
-      nm.setAttribute('x', t.x);
-      nm.setAttribute('y', capitalIds.has(t.id) ? t.y : t.y - (t.ipc > 0 ? r * 0.15 : 0));
+      nm.setAttribute('x', lx);
+      nm.setAttribute('y', capitalIds.has(t.id) ? ly + 2 : ly - (t.ipc > 0 ? 3 : 0));
       nm.setAttribute('text-anchor', 'middle');
       nm.setAttribute('dominant-baseline', 'middle');
-      nm.setAttribute('font-size', r >= 44 ? '9' : '7.5');
-      nm.setAttribute('fill', 'rgba(255,248,215,0.95)');
+      nm.setAttribute('font-size', isLarge ? '7.5' : '6');
+      nm.setAttribute('fill', 'rgba(255,248,220,0.72)');
       nm.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
       nm.setAttribute('font-weight', 'bold');
+      nm.setAttribute('letter-spacing', '0.3');
       nm.setAttribute('filter', 'url(#txt-sh)');
       nm.textContent = shortName;
       g.appendChild(nm);
 
-      // IPC value
+      // IPC value — plain number, yellow, visible but not dominant
       if (t.ipc > 0) {
         const ipc = this._svgEl('text');
-        ipc.setAttribute('x', t.x); ipc.setAttribute('y', t.y + r * 0.32);
+        ipc.setAttribute('x', lx);
+        ipc.setAttribute('y', capitalIds.has(t.id) ? ly + r * 0.42 : ly + r * 0.38);
         ipc.setAttribute('text-anchor', 'middle');
         ipc.setAttribute('dominant-baseline', 'middle');
-        ipc.setAttribute('font-size', r >= 44 ? '14' : '11');
-        ipc.setAttribute('fill', '#f8d840');
+        ipc.setAttribute('font-size', isLarge ? '11' : '8.5');
+        ipc.setAttribute('fill', '#f0cc38');
         ipc.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
         ipc.setAttribute('font-weight', 'bold');
         ipc.setAttribute('filter', 'url(#txt-sh)');
         ipc.setAttribute('class', 'ipc-val');
-        ipc.textContent = `+${t.ipc}`;
+        ipc.textContent = String(t.ipc);
         g.appendChild(ipc);
       }
 
@@ -361,14 +407,24 @@ export class MapRenderer {
 
   _drawHitTargets() {
     Object.values(TERRITORIES).forEach(t => {
-      const r = t.type === 'sea' ? 22 : Math.max(28, Math.min(60, 16 + t.ipc * 4));
-      const c = this._svgEl('circle');
-      c.setAttribute('cx', t.x); c.setAttribute('cy', t.y);
-      c.setAttribute('r', r);    c.setAttribute('fill', 'transparent');
-      c.setAttribute('data-id', t.id); c.setAttribute('class', 'hit-target');
-      c.addEventListener('click',    e => { e.stopPropagation(); this.app.onTerritoryClick(t.id); });
-      c.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); this.app.onTerritoryClick(t.id); });
-      this._hitGroup.appendChild(c);
+      const geoPath = t.type !== 'sea' ? TERRITORY_PATHS[t.id]?.path : null;
+      let el;
+      if (geoPath) {
+        el = this._svgEl('path');
+        el.setAttribute('d', geoPath);
+        el.setAttribute('fill', 'transparent');
+        el.setAttribute('stroke', 'none');
+      } else {
+        const r = t.type === 'sea' ? 22 : Math.max(26, Math.min(55, 14 + t.ipc * 3.5));
+        el = this._svgEl('circle');
+        el.setAttribute('cx', t.x); el.setAttribute('cy', t.y);
+        el.setAttribute('r', r);    el.setAttribute('fill', 'transparent');
+      }
+      el.setAttribute('data-id', t.id);
+      el.setAttribute('class', 'hit-target');
+      el.addEventListener('click',    e => { e.stopPropagation(); this.app.onTerritoryClick(t.id); });
+      el.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); this.app.onTerritoryClick(t.id); });
+      this._hitGroup.appendChild(el);
     });
   }
 
@@ -396,32 +452,36 @@ export class MapRenderer {
       const MAX_VIS = 4;
       const visible = slots.slice(0, MAX_VIS);
       const TW = 20;
-      const startX = t.x - (visible.length * TW) / 2 + TW / 2;
-      const baseY  = t.type === 'sea' ? t.y : t.y - (t.ipc === 0 ? 10 : Math.max(22, Math.min(50, 14 + t.ipc * 3.5)) * 0.38);
+      const [cx, cy] = this._getTerrCenter(t);
+      const startX = cx - (visible.length * TW) / 2 + TW / 2;
+      const baseY  = t.type === 'sea' ? cy : cy - (t.ipc === 0 ? 10 : Math.max(22, Math.min(50, 14 + t.ipc * 3.5)) * 0.38);
 
       visible.forEach(({ nat, type, count }, i) => {
         const tx    = startX + i * TW;
-        const ring  = NATION_BORDER[nat] || '#666';
+        const ring  = NATION_BORDER[nat] || '#888';
+        const bg    = NATION_TOKEN_BG[nat] || '#1a1a1a';
         const code  = UNIT_CODE[type] || type.slice(0, 3).toUpperCase();
 
-        this._circle(this._unitGroup, tx, baseY, 9, '#080c12', ring, 2);
+        // Faction-colored token
+        this._circle(this._unitGroup, tx, baseY, 8.5, bg, ring, 1.8);
 
         const ct = this._svgEl('text');
         ct.setAttribute('x', tx); ct.setAttribute('y', baseY + 0.5);
         ct.setAttribute('text-anchor', 'middle'); ct.setAttribute('dominant-baseline', 'middle');
-        ct.setAttribute('font-size', code.length > 2 ? '4.5' : '5.5');
-        ct.setAttribute('fill', '#e8ddc0'); ct.setAttribute('font-weight', 'bold');
-        ct.setAttribute('font-family', 'Arial, sans-serif'); ct.setAttribute('pointer-events', 'none');
+        ct.setAttribute('font-size', code.length > 2 ? '4.2' : '5.2');
+        ct.setAttribute('fill', '#f0e8d0'); ct.setAttribute('font-weight', 'bold');
+        ct.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
+        ct.setAttribute('pointer-events', 'none');
         ct.textContent = code;
         this._unitGroup.appendChild(ct);
 
         if (count > 1) {
-          const bx = tx + 6, by = baseY - 6;
-          this._circle(this._unitGroup, bx, by, 4.5, '#c02020', '#080c12', 0.8);
+          const bx = tx + 5.5, by = baseY - 5.5;
+          this._circle(this._unitGroup, bx, by, 4.2, ring, '#000', 0.5);
           const bt = this._svgEl('text');
           bt.setAttribute('x', bx); bt.setAttribute('y', by + 0.5);
           bt.setAttribute('text-anchor', 'middle'); bt.setAttribute('dominant-baseline', 'middle');
-          bt.setAttribute('font-size', '4.5'); bt.setAttribute('fill', '#fff');
+          bt.setAttribute('font-size', '4.2'); bt.setAttribute('fill', '#fff');
           bt.setAttribute('font-weight', 'bold'); bt.setAttribute('pointer-events', 'none');
           bt.textContent = count > 9 ? '9+' : count;
           this._unitGroup.appendChild(bt);
@@ -430,11 +490,11 @@ export class MapRenderer {
 
       if (slots.length > MAX_VIS) {
         const bx = startX + MAX_VIS * TW;
-        this._circle(this._unitGroup, bx, baseY, 9, '#252518', '#888', 1);
+        this._circle(this._unitGroup, bx, baseY, 8.5, '#303028', '#807858', 1.5);
         const et = this._svgEl('text');
         et.setAttribute('x', bx); et.setAttribute('y', baseY + 0.5);
         et.setAttribute('text-anchor', 'middle'); et.setAttribute('dominant-baseline', 'middle');
-        et.setAttribute('font-size', '5'); et.setAttribute('fill', '#bbb');
+        et.setAttribute('font-size', '5'); et.setAttribute('fill', '#c8c0a0');
         et.setAttribute('pointer-events', 'none');
         et.textContent = `+${slots.length - MAX_VIS}`;
         this._unitGroup.appendChild(et);
@@ -457,68 +517,53 @@ export class MapRenderer {
     if (!this._selGroup) return;
     this._selGroup.innerHTML = '';
 
-    // Highlight valid target territories with fill overlay
-    this.validTargets.forEach(tid => {
-      const cell = this._cells[tid];
-      const t    = TERRITORIES[tid];
-      if (!cell || !t) return;
-
-      const p = this._svgEl('path');
-      p.setAttribute('d', cellToPath(cell));
-      p.setAttribute('fill', 'rgba(50,255,90,0.22)');
-      p.setAttribute('stroke', '#40ff60');
-      p.setAttribute('stroke-width', '2.5');
-      p.setAttribute('pointer-events', 'none');
-      this._selGroup.appendChild(p);
-
-      // Sea zone valid targets (no voronoi cell) — use circle
-      if (!this._cells[tid]) {
-        this._circle(this._selGroup, t.x, t.y, 26, 'rgba(50,255,90,0.22)', '#40ff60', 2.5);
-      }
-    });
-
-    // Also highlight sea zone targets with circles
-    this.validTargets.forEach(tid => {
+    const addOverlay = (tid, fill, stroke, sw, dash) => {
+      const d = this._getTerrPath(tid);
       const t = TERRITORIES[tid];
-      if (t && t.type === 'sea') {
-        this._circle(this._selGroup, t.x, t.y, 26, 'rgba(50,255,90,0.22)', '#40ff60', 2.5);
-      }
-    });
-
-    // Selected territory — white outline over polygon
-    if (this.selectedId) {
-      const cell = this._cells[this.selectedId];
-      const t    = TERRITORIES[this.selectedId];
-      if (cell) {
+      if (!t) return;
+      if (d) {
         const p = this._svgEl('path');
-        p.setAttribute('d', cellToPath(cell));
-        p.setAttribute('fill', 'rgba(255,255,255,0.10)');
-        p.setAttribute('stroke', '#ffffff');
-        p.setAttribute('stroke-width', '3');
-        p.setAttribute('stroke-dasharray', '8,4');
+        p.setAttribute('d', d);
+        p.setAttribute('fill', fill);
+        p.setAttribute('stroke', stroke);
+        p.setAttribute('stroke-width', sw);
+        if (dash) p.setAttribute('stroke-dasharray', dash);
         p.setAttribute('pointer-events', 'none');
         this._selGroup.appendChild(p);
-      } else if (t) {
+      } else {
+        this._circle(this._selGroup, t.x, t.y, 26, fill, stroke, sw);
+      }
+    };
+
+    // Valid target territories — green overlay
+    this.validTargets.forEach(tid => {
+      const t = TERRITORIES[tid];
+      if (!t) return;
+      if (t.type === 'sea') {
+        this._circle(this._selGroup, t.x, t.y, 26, 'rgba(50,255,90,0.22)', '#40ff60', 2.5);
+      } else {
+        addOverlay(tid, 'rgba(50,255,90,0.22)', '#40ff60', 2.5, null);
+      }
+    });
+
+    // Selected territory — white dashed outline
+    if (this.selectedId) {
+      const t = TERRITORIES[this.selectedId];
+      if (t?.type === 'sea') {
         this._circle(this._selGroup, t.x, t.y, 30, 'rgba(255,255,255,0.1)', '#ffffff', 3);
+      } else {
+        addOverlay(this.selectedId, 'rgba(255,255,255,0.10)', '#ffffff', 3, '8,4');
       }
     }
 
     // Pending combat — red dashed overlay
     const combats = this.app.turnEngine?.pendingCombats || [];
     combats.forEach(tid => {
-      const cell = this._cells[tid];
-      const t    = TERRITORIES[tid];
-      if (cell) {
-        const p = this._svgEl('path');
-        p.setAttribute('d', cellToPath(cell));
-        p.setAttribute('fill', 'rgba(255,40,40,0.15)');
-        p.setAttribute('stroke', '#ff3030');
-        p.setAttribute('stroke-width', '2.5');
-        p.setAttribute('stroke-dasharray', '6,3');
-        p.setAttribute('pointer-events', 'none');
-        this._selGroup.appendChild(p);
-      } else if (t) {
+      const t = TERRITORIES[tid];
+      if (t?.type === 'sea') {
         this._circle(this._selGroup, t.x, t.y, 28, 'rgba(255,40,40,0.15)', '#ff3030', 2.5);
+      } else {
+        addOverlay(tid, 'rgba(255,40,40,0.15)', '#ff3030', 2.5, '6,3');
       }
     });
   }
@@ -640,7 +685,7 @@ const MAP_CSS = `
   .map-wrap {
     width: 100%; height: 100%;
     overflow: hidden; position: relative;
-    background: ${OCEAN_COLOR};
+    background: #4e7888;
     cursor: grab;
     user-select: none;
   }
@@ -651,4 +696,5 @@ const MAP_CSS = `
     will-change: transform;
   }
   .hit-target { cursor: pointer; }
+  .hit-target:hover { opacity: 0.85; }
 `;

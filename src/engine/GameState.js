@@ -45,7 +45,7 @@ export class GameState {
         this.technologies[n.id] = [];
       });
       // Industrial complexes — capitals + starting IC territories
-      ['germany','russia','united_kingdom','eastern_us','japan'].forEach(tid => {
+      ['germany','russia','united_kingdom','eastern_us','japan','australia'].forEach(tid => {
         const owner = this.ownership[tid];
         if (owner && owner !== 'neutral') this.industrialComplexes[tid] = owner;
       });

@@ -334,7 +334,7 @@ export const TERRITORIES = {
     adjacent:['malaya','dutch_east_indies','philippines','sz_36','sz_41']
   },
   new_guinea: {
-    id:'new_guinea', name:'New Guinea', ipc:1, startOwner:'uk', type:'land', region:'pacific',
+    id:'new_guinea', name:'New Guinea', ipc:1, startOwner:'australia', type:'land', region:'pacific',
     x:1230, y:555,
     adjacent:['dutch_east_indies','solomon_islands','australia','sz_42','sz_44','sz_45']
   },
@@ -344,8 +344,8 @@ export const TERRITORIES = {
     adjacent:['new_guinea','sz_44','sz_45']
   },
   australia: {
-    id:'australia', name:'Australia', ipc:2, startOwner:'uk', type:'land', region:'pacific',
-    x:1185, y:660,
+    id:'australia', name:'Australia', ipc:4, startOwner:'australia', type:'land', region:'pacific',
+    x:1185, y:580,
     adjacent:['new_guinea','sz_42','sz_44','sz_54']
   },
   new_zealand: {

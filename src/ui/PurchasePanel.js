@@ -1,4 +1,4 @@
-import { getAllUnits } from '../data/units.js';
+import { getAllUnits, getUnitsForNation, ADVANCED_UNITS } from '../data/units.js';
 import { NATIONS } from '../data/nations.js';
 
 // 3-char codes matching the App Store game's unit labels
@@ -26,6 +26,14 @@ const IC_UNIT = {
   type: 'building',
   description: 'Produces units each round. Build in captured territory with 3+ IPC.',
 };
+
+// 3-char codes for advanced units
+const ADV_UNIT_CODE = {
+  b52:'B52', stealth_fighter:'SF', ford_carrier:'FCV',
+  tiger_tank:'TIG', zero_fighter:'A6M', t34_tank:'T34',
+  spitfire:'SPT', digger_inf:'ANZ',
+};
+Object.assign(UNIT_CODE, ADV_UNIT_CODE);
 
 export class PurchasePanel {
   constructor(container, app) {
@@ -61,14 +69,23 @@ export class PurchasePanel {
     const pendingCounts = {};
     pending.forEach(t => { pendingCounts[t] = (pendingCounts[t] || 0) + 1; });
 
-    // Organize units by tab
-    const byTab = { land: [], sea: [], air: [], industry: [IC_UNIT] };
-    Object.values(allUnits).forEach(u => {
-      const tab = u.type === 'building' ? 'industry' : u.type;
-      if (byTab[tab]) byTab[tab].push(u);
+    // Nation-filtered units
+    const nationUnits = getUnitsForNation(nation);
+
+    // Organize standard units by tab (land/sea/air), advanced tab = nation-specific only
+    const byTab = { land: [], sea: [], air: [], industry: [IC_UNIT], advanced: [] };
+    Object.values(nationUnits).forEach(u => {
+      if (u.type === 'building') { byTab.industry.push(u); return; }
+      // Advanced units (restricted to certain nations or custom) go to advanced tab
+      if (u.availableFor !== null && u.availableFor !== undefined) {
+        byTab.advanced.push(u);
+        return;
+      }
+      if (byTab[u.type]) byTab[u.type].push(u);
     });
 
     const units = byTab[this._tab] || [];
+    const hasAdvanced = byTab.advanced.length > 0;
 
     panel.innerHTML = `
       <div class="pp-hdr">
@@ -94,6 +111,7 @@ export class PurchasePanel {
           <button class="pp-tab ${this._tab === t ? 'active' : ''}" data-tab="${t}">
             ${t.toUpperCase()}
           </button>`).join('')}
+        ${hasAdvanced ? `<button class="pp-tab adv-tab ${this._tab === 'advanced' ? 'active' : ''}" data-tab="advanced" title="Nation-specific & custom units">★ ADV</button>` : ''}
       </div>
 
       <div class="pp-col-hdr">
@@ -111,6 +129,7 @@ export class PurchasePanel {
 
       <div class="pp-footer">
         <div class="pp-spent-lbl">SPENT: <b>${spent} IPC</b></div>
+        <button class="pp-custom-btn" id="pp-custom" title="Create custom unit">⚙ CUSTOM</button>
         <button class="pp-end" id="pp-end">END PHASE</button>
       </div>
     `;
@@ -130,6 +149,12 @@ export class PurchasePanel {
     panel.querySelector('#pp-end')?.addEventListener('click', () => {
       this.hide();
       this.app.turnEngine.advancePhase();
+    });
+    // Custom unit editor
+    panel.querySelector('#pp-custom')?.addEventListener('click', () => {
+      import('./CustomUnitEditor.js').then(({ CustomUnitEditor }) => {
+        new CustomUnitEditor(document.getElementById('overlay-root'), this.app).show();
+      }).catch(() => {});
     });
   }
 
@@ -218,6 +243,8 @@ const PANEL_CSS = `
   }
   .pp-tab.active       { color: #e8c060; border-bottom-color: #e8c060; }
   .pp-tab:hover:not(.active) { color: #999; }
+  .pp-tab.adv-tab      { color: #7080d0; }
+  .pp-tab.adv-tab.active { color: #a0b8f8; border-bottom-color: #a0b8f8; }
 
   /* Column headers */
   .pp-col-hdr {
@@ -285,6 +312,19 @@ const PANEL_CSS = `
   }
   .pp-spent-lbl { font-size: 0.68rem; color: #555; flex: 1; }
   .pp-spent-lbl b { color: #c8a040; }
+  .pp-custom-btn {
+    background: #1a2040; color: #8898c8; border: 1px solid #303868;
+    border-radius: 4px; padding: 6px 10px; font-size: 0.62rem; font-weight: 900;
+    letter-spacing: 1px; cursor: pointer; font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pp-custom-btn:hover { background: #242860; color: #c0d0f8; }
+
+  .pp-pp-nation-badge {
+    font-size: 0.52rem; color: #607090; margin-left: 4px;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+
   .pp-end {
     background: #b83010; color: #fff;
     border: none; border-radius: 5px;
