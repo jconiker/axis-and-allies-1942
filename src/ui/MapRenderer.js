@@ -6,25 +6,25 @@ window.__TERRITORIES = TERRITORIES;
 
 // ── NATION COLORS — vintage board-game map palette ──────────────────────────
 const NATION_FILL = {
-  ussr:      '#a85848',  // dusty terra cotta / salmon
-  germany:   '#4a6585',  // muted slate blue-gray (less vivid, more vintage)
-  uk:        '#a88020',  // golden amber
-  japan:     '#b87020',  // amber-brown
-  usa:       '#486840',  // muted sage green
-  australia: '#2a9068',  // sea green / teal
-  neutral:   '#c8bc90',  // warm beige / parchment (slightly darker)
+  ussr:      '#98483c',  // dusty terra cotta — slightly more muted
+  germany:   '#445e78',  // muted slate blue-gray
+  uk:        '#987218',  // golden amber
+  japan:     '#a86818',  // amber-brown — slightly more muted
+  usa:       '#3e5c30',  // muted sage green
+  australia: '#247858',  // sea green / teal
+  neutral:   '#b8ac80',  // warm beige / parchment
 };
 const NATION_BORDER = {
-  ussr:      '#783828',  // darker terra cotta
-  germany:   '#2c3d58',  // darker muted slate
-  uk:        '#786010',  // darker gold
-  japan:     '#885010',  // darker amber-brown
-  usa:       '#285820',  // darker sage
-  australia: '#156848',  // darker sea green
-  neutral:   '#8a7a60',  // medium brown
+  ussr:      '#6a2e1e',  // darker terra cotta
+  germany:   '#263648',  // darker muted slate
+  uk:        '#685008',  // darker gold
+  japan:     '#784008',  // darker amber-brown
+  usa:       '#204818',  // darker sage
+  australia: '#105838',  // darker sea green
+  neutral:   '#7a6a50',  // medium brown
 };
 
-const OCEAN_COLOR = '#7898a8';  // soft steel blue (vintage map ocean)
+const OCEAN_COLOR = '#3a5a6e';  // darker steel blue-gray (vintage map ocean)
 const VB_W = 1400, VB_H = 780;
 
 const UNIT_CODE = {
@@ -200,12 +200,16 @@ export class MapRenderer {
     // Unit tokens
     this._unitGroup = this._makeGroup(svg, 'unit-tokens');
 
+    // Vignette overlay — dark edge fade, below hit targets
+    this._vigGroup = this._makeGroup(svg, 'vignette');
+
     // Invisible click targets on top
     this._hitGroup = this._makeGroup(svg, 'hit-targets');
 
     this._drawTerritories();
     this._drawSeaLabels();
     this._drawStaticLabels();
+    this._drawVignette();
     this._drawHitTargets();
     this._updateUnits();
     this._updateSelections();
@@ -215,11 +219,11 @@ export class MapRenderer {
   _buildDefs(svg) {
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     defs.innerHTML = `
-      <!-- Vintage map ocean: soft steel blue, slightly lighter at center -->
+      <!-- Vintage map ocean: muted steel blue-gray, darker for vintage mood -->
       <radialGradient id="ocean-grad" cx="52%" cy="40%" r="78%">
-        <stop offset="0%"   stop-color="#8ab4c8"/>
-        <stop offset="60%"  stop-color="#7098b0"/>
-        <stop offset="100%" stop-color="#4e7888"/>
+        <stop offset="0%"   stop-color="#6898b0"/>
+        <stop offset="55%"  stop-color="#4e7898"/>
+        <stop offset="100%" stop-color="#3a5a6e"/>
       </radialGradient>
       <!-- Subtle paper grain for territories — vintage map feel -->
       <filter id="paper" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
@@ -347,6 +351,12 @@ export class MapRenderer {
     const capitalIds = new Set(
       Object.values(NATIONS).filter(n => n.capital).map(n => n.capital)
     );
+    // Non-capital Victory Cities — get a smaller gold diamond marker
+    const ALL_VCS = new Set([
+      'germany', 'western_europe', 'southern_europe', 'japan', 'manchuria',
+      'russia', 'united_kingdom', 'eastern_us', 'india', 'australia',
+    ]);
+    const nonCapVCs = new Set([...ALL_VCS].filter(id => !capitalIds.has(id)));
 
     Object.values(TERRITORIES).forEach(t => {
       if (t.type === 'sea') return;
@@ -361,7 +371,7 @@ export class MapRenderer {
       const r = t.ipc === 0 ? 16 : Math.max(20, Math.min(50, 12 + t.ipc * 3.2));
       const isLarge = r >= 36;
 
-      // Capital star — small, gold
+      // Capital star — gold ★
       if (capitalIds.has(t.id)) {
         const star = this._svgEl('text');
         star.setAttribute('x', lx); star.setAttribute('y', ly - r * 0.5);
@@ -372,6 +382,18 @@ export class MapRenderer {
         star.setAttribute('filter', 'url(#txt-sh)');
         star.textContent = '★';
         g.appendChild(star);
+      }
+      // Non-capital Victory City — small gold diamond ◆
+      if (nonCapVCs.has(t.id)) {
+        const vc = this._svgEl('text');
+        vc.setAttribute('x', lx); vc.setAttribute('y', ly - r * 0.5);
+        vc.setAttribute('text-anchor', 'middle');
+        vc.setAttribute('dominant-baseline', 'middle');
+        vc.setAttribute('font-size', isLarge ? '8' : '6.5');
+        vc.setAttribute('fill', '#d4a820');
+        vc.setAttribute('filter', 'url(#txt-sh)');
+        vc.textContent = '◆';
+        g.appendChild(vc);
       }
 
       // Factory icon — small, right of center (visibility updated dynamically)
@@ -425,6 +447,11 @@ export class MapRenderer {
       this._labelGroup.appendChild(g);
     });
   }
+
+  // ── VIGNETTE ─────────────────────────────────────────────────────────────────
+  // NOTE: The CSS vignette in MAP_CSS handles this as a fixed overlay so it
+  // stays at the screen edges and doesn't move with pan/zoom.
+  _drawVignette() { /* handled by CSS ::after on .map-wrap */ }
 
   // ── HIT TARGETS ─────────────────────────────────────────────────────────────
 
@@ -716,11 +743,26 @@ const MAP_CSS = `
   .map-wrap {
     width: 100%; height: 100%;
     overflow: hidden; position: relative;
-    background: #4e7888;
+    background: #3a5a6e;
     cursor: grab;
     user-select: none;
   }
   .map-wrap:active { cursor: grabbing; }
+  /* Fixed vignette overlay — stays at screen edges regardless of pan/zoom */
+  .map-wrap::after {
+    content: '';
+    position: absolute; inset: 0;
+    pointer-events: none; z-index: 10;
+    background:
+      /* top edge */
+      linear-gradient(to bottom, rgba(0,3,12,0.55) 0%, transparent 12%),
+      /* bottom edge */
+      linear-gradient(to top, rgba(0,3,12,0.65) 0%, transparent 14%),
+      /* left edge */
+      linear-gradient(to right, rgba(0,3,12,0.50) 0%, transparent 10%),
+      /* right edge */
+      linear-gradient(to left, rgba(0,3,12,0.50) 0%, transparent 10%);
+  }
   .map-svg {
     width: 100%; height: 100%;
     display: block; transform-origin: top left;

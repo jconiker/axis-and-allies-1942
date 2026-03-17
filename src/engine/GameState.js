@@ -203,6 +203,10 @@ export class GameState {
       this.ownership[territoryId] = byNation;
       // Clear enemy units (they were destroyed); keep own units
       this.units[territoryId] = (this.units[territoryId] || []).filter(u => u.nation === byNation);
+      // Transfer IC to capturing nation (A&A standard rule — IC stays, changes ownership)
+      if (this.industrialComplexes[territoryId]) {
+        this.industrialComplexes[territoryId] = byNation;
+      }
       // If capturing capital, strip IPC from defeated nation
       const capturedNation = Object.values(NATIONS).find(n => n.capital === territoryId);
       if (capturedNation && capturedNation.id !== byNation && capturedNation.id !== 'neutral') {
