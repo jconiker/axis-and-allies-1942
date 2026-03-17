@@ -29,11 +29,21 @@ const NATION_BORDER = {
 const OCEAN_COLOR = '#607888';  // medium steel blue-gray (vintage map ocean)
 const VB_W = 1400, VB_H = 780;
 
+// Unit symbols — short codes + Unicode for air units
 const UNIT_CODE = {
-  infantry:'INF', artillery:'ART', armor:'ARM', antiair:'AA',
-  fighter:'FTR', bomber:'BMB', tactical_bomber:'TAC',
-  submarine:'SUB', destroyer:'DD', cruiser:'CA',
-  carrier:'CV', battleship:'BB', transport:'TRN',
+  infantry:        'I',
+  artillery:       'ART',
+  armor:           'ARM',
+  antiair:         'AA',
+  fighter:         '✈',
+  bomber:          '✈B',
+  tactical_bomber: '✈T',
+  submarine:       'SUB',
+  destroyer:       'DD',
+  cruiser:         'CA',
+  carrier:         'CV',
+  battleship:      'BB',
+  transport:       'TRN',
 };
 
 // Darker token background color per nation (tinted faction — stays dark for contrast)
@@ -211,11 +221,13 @@ export class MapRenderer {
     // Movement arrow layer — drawn above selections, below units
     this._arrowGroup = this._makeGroup(svg, 'move-arrows');
 
+    this._drawOceanGrid();
     this._drawTerritories();
     this._drawSeaLabels();
     this._drawStaticLabels();
     this._drawVignette();
     this._drawHitTargets();
+    this._drawCompassRose();
     this._updateUnits();
     this._updateSelections();
     this._attachInteraction(wrap);
@@ -283,6 +295,40 @@ export class MapRenderer {
     return [t.x, t.y];
   }
 
+  // ── OCEAN GRID LINES ─────────────────────────────────────────────────────────
+  // Vintage cartographic latitude/longitude grid overlay on the ocean
+
+  _drawOceanGrid() {
+    const g = this._makeGroup(this.svg, 'ocean-grid');
+    // Insert grid right after the ocean background rect (before coast group)
+    this.svg.insertBefore(g, this._coastGroup);
+
+    const STEP_X = VB_W / 14;   // ~14 vertical lines
+    const STEP_Y = VB_H / 7;    // ~7 horizontal lines
+    const STROKE = 'rgba(65,110,140,0.22)';
+    const SW     = '0.6';
+
+    // Horizontal lines (latitude)
+    for (let y = STEP_Y; y < VB_H; y += STEP_Y) {
+      const l = this._svgEl('line');
+      l.setAttribute('x1', 0);   l.setAttribute('y1', y.toFixed(1));
+      l.setAttribute('x2', VB_W); l.setAttribute('y2', y.toFixed(1));
+      l.setAttribute('stroke', STROKE); l.setAttribute('stroke-width', SW);
+      l.setAttribute('pointer-events', 'none');
+      g.appendChild(l);
+    }
+
+    // Vertical lines (longitude)
+    for (let x = STEP_X; x < VB_W; x += STEP_X) {
+      const l = this._svgEl('line');
+      l.setAttribute('x1', x.toFixed(1)); l.setAttribute('y1', 0);
+      l.setAttribute('x2', x.toFixed(1)); l.setAttribute('y2', VB_H);
+      l.setAttribute('stroke', STROKE); l.setAttribute('stroke-width', SW);
+      l.setAttribute('pointer-events', 'none');
+      g.appendChild(l);
+    }
+  }
+
   _drawTerritories() {
     this._coastGroup.innerHTML = '';
     this._terrGroup.innerHTML = '';
@@ -312,7 +358,7 @@ export class MapRenderer {
       path.setAttribute('d', d);
       path.setAttribute('fill', fill);
       path.setAttribute('stroke', stroke);
-      path.setAttribute('stroke-width', '1.2');
+      path.setAttribute('stroke-width', '1.5');
       path.setAttribute('stroke-linejoin', 'round');
       path.setAttribute('filter', 'url(#paper)');
       path.setAttribute('data-id', t.id);
@@ -522,10 +568,13 @@ export class MapRenderer {
 
       const MAX_VIS = 4;
       const visible = slots.slice(0, MAX_VIS);
-      const TW = 20;
+      const TW = 22;
       const [cx, cy] = this._getTerrCenter(t);
       const startX = cx - (visible.length * TW) / 2 + TW / 2;
       const baseY  = t.type === 'sea' ? cy : cy - (t.ipc === 0 ? 10 : Math.max(22, Math.min(50, 14 + t.ipc * 3.5)) * 0.38);
+
+      const AIR_UNIT_TYPES = new Set(['fighter','bomber','tactical_bomber']);
+      const NAV_UNIT_TYPES = new Set(['submarine','destroyer','cruiser','carrier','battleship','transport']);
 
       visible.forEach(({ nat, type, count }, i) => {
         const tx    = startX + i * TW;
@@ -533,13 +582,19 @@ export class MapRenderer {
         const bg    = NATION_TOKEN_BG[nat] || '#1a1a1a';
         const code  = UNIT_CODE[type] || type.slice(0, 3).toUpperCase();
 
+        // Air units get a slightly lighter ring; naval get a blue tint ring
+        const ringColor = AIR_UNIT_TYPES.has(type)
+          ? '#d8d030'
+          : NAV_UNIT_TYPES.has(type) ? '#4090c0' : ring;
+        const ringWidth = AIR_UNIT_TYPES.has(type) ? 2.2 : 1.8;
+
         // Faction-colored token
-        this._circle(this._unitGroup, tx, baseY, 8.5, bg, ring, 1.8);
+        this._circle(this._unitGroup, tx, baseY, 9, bg, ringColor, ringWidth);
 
         const ct = this._svgEl('text');
         ct.setAttribute('x', tx); ct.setAttribute('y', baseY + 0.5);
         ct.setAttribute('text-anchor', 'middle'); ct.setAttribute('dominant-baseline', 'middle');
-        ct.setAttribute('font-size', code.length > 2 ? '4.2' : '5.2');
+        ct.setAttribute('font-size', code.length > 2 ? '4.5' : '5.5');
         ct.setAttribute('fill', '#f0e8d0'); ct.setAttribute('font-weight', 'bold');
         ct.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
         ct.setAttribute('pointer-events', 'none');
@@ -588,7 +643,7 @@ export class MapRenderer {
     if (!this._selGroup) return;
     this._selGroup.innerHTML = '';
 
-    const addOverlay = (tid, fill, stroke, sw, dash) => {
+    const addOverlay = (tid, fill, stroke, sw, dash, cssClass) => {
       const d = this._getTerrPath(tid);
       const t = TERRITORIES[tid];
       if (!t) return;
@@ -599,10 +654,12 @@ export class MapRenderer {
         p.setAttribute('stroke', stroke);
         p.setAttribute('stroke-width', sw);
         if (dash) p.setAttribute('stroke-dasharray', dash);
+        if (cssClass) p.setAttribute('class', cssClass);
         p.setAttribute('pointer-events', 'none');
         this._selGroup.appendChild(p);
       } else {
-        this._circle(this._selGroup, t.x, t.y, 26, fill, stroke, sw);
+        const c = this._circle(this._selGroup, t.x, t.y, 26, fill, stroke, sw);
+        if (cssClass) c.setAttribute('class', cssClass);
       }
     };
 
@@ -613,28 +670,30 @@ export class MapRenderer {
       if (t.type === 'sea') {
         this._circle(this._selGroup, t.x, t.y, 26, 'rgba(50,255,90,0.22)', '#40ff60', 2.5);
       } else {
-        addOverlay(tid, 'rgba(50,255,90,0.22)', '#40ff60', 2.5, null);
+        addOverlay(tid, 'rgba(50,255,90,0.22)', '#40ff60', 2.5, null, null);
       }
     });
 
-    // Selected territory — white dashed outline
+    // Selected territory — white dashed outline with pulse animation
     if (this.selectedId) {
       const t = TERRITORIES[this.selectedId];
       if (t?.type === 'sea') {
-        this._circle(this._selGroup, t.x, t.y, 30, 'rgba(255,255,255,0.1)', '#ffffff', 3);
+        const c = this._circle(this._selGroup, t.x, t.y, 30, 'rgba(255,255,255,0.1)', '#ffffff', 3);
+        c.setAttribute('class', 'sel-anim');
       } else {
-        addOverlay(this.selectedId, 'rgba(255,255,255,0.10)', '#ffffff', 3, '8,4');
+        addOverlay(this.selectedId, 'rgba(255,255,255,0.10)', '#ffffff', 3, '8,4', 'sel-anim');
       }
     }
 
-    // Pending combat — red dashed overlay
+    // Pending combat — red flashing overlay
     const combats = this.app.turnEngine?.pendingCombats || [];
     combats.forEach(tid => {
       const t = TERRITORIES[tid];
       if (t?.type === 'sea') {
-        this._circle(this._selGroup, t.x, t.y, 28, 'rgba(255,40,40,0.15)', '#ff3030', 2.5);
+        const c = this._circle(this._selGroup, t.x, t.y, 28, 'rgba(255,40,40,0.15)', '#ff3030', 2.5);
+        c.setAttribute('class', 'combat-anim');
       } else {
-        addOverlay(tid, 'rgba(255,40,40,0.15)', '#ff3030', 2.5, '6,3');
+        addOverlay(tid, 'rgba(255,40,40,0.15)', '#ff3030', 2.5, '6,3', 'combat-anim');
       }
     });
   }
@@ -674,6 +733,85 @@ export class MapRenderer {
 
   clearArrows() {
     if (this._arrowGroup) this._arrowGroup.innerHTML = '';
+  }
+
+  /** Reset map pan and zoom to default view */
+  resetZoom() {
+    if (this._resetView) {
+      // Add smooth transition for the reset
+      if (this.svg) {
+        this.svg.style.transition = 'transform 0.35s ease';
+        setTimeout(() => { if (this.svg) this.svg.style.transition = ''; }, 380);
+      }
+      this._resetView();
+    }
+  }
+
+  // ── COMPASS ROSE ─────────────────────────────────────────────────────────────
+  // Vintage cartographic compass rose — fixed bottom-left corner of the map
+
+  _drawCompassRose() {
+    const g = this._makeGroup(this.svg, 'compass-rose');
+    // Place in bottom-left
+    const cx = 58, cy = VB_H - 60, R = 30;
+
+    // Outer ring
+    const ring = this._svgEl('circle');
+    ring.setAttribute('cx', cx); ring.setAttribute('cy', cy); ring.setAttribute('r', R + 4);
+    ring.setAttribute('fill', 'rgba(8,18,28,0.55)');
+    ring.setAttribute('stroke', 'rgba(170,145,90,0.6)'); ring.setAttribute('stroke-width', '0.8');
+    ring.setAttribute('pointer-events', 'none');
+    g.appendChild(ring);
+
+    // Cardinal spikes: N S E W (long) + intercardinals (short)
+    const spikes = [
+      { angle: -90, len: R,       wide: 5,   fill: '#d8c07a' },  // N — gold
+      { angle:  90, len: R * 0.8, wide: 4,   fill: '#b0a060' },  // S
+      { angle:   0, len: R * 0.8, wide: 4,   fill: '#b0a060' },  // E
+      { angle: 180, len: R * 0.8, wide: 4,   fill: '#b0a060' },  // W
+      { angle: -45, len: R * 0.55,wide: 2.5, fill: '#786840' },  // NE
+      { angle:  45, len: R * 0.55,wide: 2.5, fill: '#786840' },  // SE
+      { angle: 135, len: R * 0.55,wide: 2.5, fill: '#786840' },  // SW
+      { angle:-135, len: R * 0.55,wide: 2.5, fill: '#786840' },  // NW
+    ];
+
+    spikes.forEach(({ angle, len, wide, fill }) => {
+      const rad = (angle * Math.PI) / 180;
+      const tx  = cx + Math.cos(rad) * len;
+      const ty  = cy + Math.sin(rad) * len;
+      // Perpendicular for diamond base width
+      const prx = Math.cos(rad + Math.PI / 2) * wide;
+      const pry = Math.sin(rad + Math.PI / 2) * wide;
+      // Diamond: tip → right-base → tail → left-base
+      const tailX = cx - Math.cos(rad) * (len * 0.18);
+      const tailY = cy - Math.sin(rad) * (len * 0.18);
+      const d = `M${tx.toFixed(1)},${ty.toFixed(1)} `
+              + `L${(cx+prx).toFixed(1)},${(cy+pry).toFixed(1)} `
+              + `L${tailX.toFixed(1)},${tailY.toFixed(1)} `
+              + `L${(cx-prx).toFixed(1)},${(cy-pry).toFixed(1)} Z`;
+      const p = this._svgEl('path');
+      p.setAttribute('d', d); p.setAttribute('fill', fill);
+      p.setAttribute('stroke', 'rgba(0,0,0,0.4)'); p.setAttribute('stroke-width', '0.4');
+      p.setAttribute('pointer-events', 'none');
+      g.appendChild(p);
+    });
+
+    // Center dot
+    const dot = this._svgEl('circle');
+    dot.setAttribute('cx', cx); dot.setAttribute('cy', cy); dot.setAttribute('r', 3);
+    dot.setAttribute('fill', '#d8c07a'); dot.setAttribute('stroke', '#000'); dot.setAttribute('stroke-width', '0.5');
+    dot.setAttribute('pointer-events', 'none');
+    g.appendChild(dot);
+
+    // "N" label above
+    const n = this._svgEl('text');
+    n.setAttribute('x', cx); n.setAttribute('y', cy - R - 6);
+    n.setAttribute('text-anchor', 'middle'); n.setAttribute('dominant-baseline', 'auto');
+    n.setAttribute('font-size', '9'); n.setAttribute('fill', '#d8c07a');
+    n.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
+    n.setAttribute('font-weight', 'bold'); n.setAttribute('pointer-events', 'none');
+    n.textContent = 'N';
+    g.appendChild(n);
   }
 
   // ── UPDATE ───────────────────────────────────────────────────────────────────
@@ -794,6 +932,9 @@ export class MapRenderer {
       // If mouse is dragging, ignore
       if (!dragging) { tx = 0; ty = 0; scale = 1; apply(); }
     });
+
+    // Expose reset function so resetZoom() can call it externally
+    this._resetView = () => { tx = 0; ty = 0; scale = 1; apply(); };
   }
 }
 
@@ -829,5 +970,23 @@ const MAP_CSS = `
     will-change: transform;
   }
   .hit-target { cursor: pointer; }
-  .hit-target:hover { opacity: 0.85; }
+  /* Territory hover: brighten fill slightly */
+  .hit-target:hover + * { filter: brightness(1.15); }
+  #territories path:hover { filter: brightness(1.15) url(#paper); }
+
+  /* Selection pulse animation — applied to the selected overlay path */
+  @keyframes sel-pulse {
+    0%   { opacity: 0.12; }
+    50%  { opacity: 0.28; }
+    100% { opacity: 0.12; }
+  }
+  .sel-anim { animation: sel-pulse 1.6s ease-in-out infinite; }
+
+  /* Combat pending flash animation */
+  @keyframes combat-flash {
+    0%   { opacity: 0.1; }
+    50%  { opacity: 0.35; }
+    100% { opacity: 0.1; }
+  }
+  .combat-anim { animation: combat-flash 0.9s ease-in-out infinite; }
 `;

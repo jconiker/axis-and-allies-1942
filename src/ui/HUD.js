@@ -80,10 +80,12 @@ export class HUD {
           const nDef   = NATIONS[n];
           const active = n === nation;
           const nIpc   = this.state.ipc[n] || 0;
+          const income = this.state.calculateIncome(n);
           const human  = this.state.players[n] === 'human';
+          const terrCount = Object.values(this.state.ownership || {}).filter(o => o === n).length;
           return `
             <div class="h-nat ${active ? 'active' : ''} ${nDef.side}"
-                 title="${nDef.name}: ${nIpc} IPC ${human ? '(You)' : '(AI)'}">
+                 title="${nDef.name}: ${nIpc} IPC (+${income}/turn), ${terrCount} territories ${human ? '👤' : '🤖'}">
               <span class="h-nat-sym">${NAT_SYMBOL[n] || nDef.flag}</span>
               ${active ? '<div class="h-nat-pip"></div>' : ''}
             </div>`;
@@ -111,10 +113,11 @@ export class HUD {
         <div class="h-vc-label">VICTORY CITIES · AXIS WINS AT ${AXIS_WIN}</div>
       </div>
 
-      <!-- Current-nation IPC -->
+      <!-- Current-nation IPC + projected income -->
       <div class="h-ipc">
         <div class="h-ipc-val">${ipc}</div>
         <div class="h-ipc-lbl">IPC</div>
+        <div class="h-ipc-income">+${this.state.calculateIncome(nation)}</div>
       </div>
 
       <!-- Rules button -->
@@ -200,8 +203,9 @@ const HUD_CSS = `
     background: #0e1408; border: 1px solid #2a3820;
     border-radius: 4px; padding: 3px 10px; flex-shrink: 0;
   }
-  .h-ipc-val { font-size: 1.2rem; color: #c8a040; font-weight: 900; line-height: 1; }
-  .h-ipc-lbl { font-size: 0.52rem; color: #5a6a3a; letter-spacing: 1px; }
+  .h-ipc-val    { font-size: 1.2rem; color: #c8a040; font-weight: 900; line-height: 1; }
+  .h-ipc-lbl    { font-size: 0.52rem; color: #5a6a3a; letter-spacing: 1px; }
+  .h-ipc-income { font-size: 0.52rem; color: #70a850; letter-spacing: 0.5px; }
 
   /* ── Rules button ── */
   .h-rules-btn {

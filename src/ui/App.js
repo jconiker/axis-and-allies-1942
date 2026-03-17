@@ -242,16 +242,18 @@ export class App {
       <button class="float-end-btn" id="btn-end-phase">
         <span>END</span><span>PHASE</span>
       </button>
+      <!-- Zoom reset button bottom-left -->
+      <button class="float-zoom-btn" id="btn-zoom-reset" title="Reset zoom (or double-click map)">⊕</button>
       <!-- Research button (shown only during purchase) -->
       <button class="float-research-btn" id="btn-research" style="display:none">🔬</button>
       <!-- Phase hint bottom-center -->
       <div class="float-hint" id="phase-hint"></div>
-      <!-- AI thinking banner -->
     `;
     document.body.appendChild(fc);
 
     document.getElementById('btn-end-phase').addEventListener('click', () => this._handleEndPhase());
     document.getElementById('btn-research')?.addEventListener('click', () => this._showTechPanel());
+    document.getElementById('btn-zoom-reset')?.addEventListener('click', () => this.map?.resetZoom());
   }
 
   _handleEndPhase() {
@@ -764,6 +766,21 @@ const FLOAT_CSS = `
     box-shadow: 0 2px 12px rgba(0,0,120,0.5);
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Zoom reset button — bottom left */
+  .float-zoom-btn {
+    position: fixed; bottom: 22px; left: 22px;
+    width: 42px; height: 42px; border-radius: 50%;
+    background: rgba(18,24,14,0.85); border: 1.5px solid #3a4828;
+    color: #8a9870; font-size: 1.1rem;
+    cursor: pointer; z-index: 400;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    -webkit-tap-highlight-color: transparent;
+    font-family: 'Arial Narrow', Arial, sans-serif;
+  }
+  .float-zoom-btn:hover { background: rgba(26,34,18,0.95); color: #c8b870; }
+  .float-zoom-btn:active { transform: scale(0.9); }
 
   /* Phase hint */
   .float-hint {
