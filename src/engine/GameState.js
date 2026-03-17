@@ -160,8 +160,15 @@ export class GameState {
       const idx = this.pendingPlacements[nation].indexOf(unitType);
       if (idx === -1) return false;
       this.pendingPlacements[nation].splice(idx, 1);
-      const unit = this._makeUnit(unitType, nation);
-      this.units[territoryId] = [...(this.units[territoryId] || []), unit];
+
+      if (unitType === 'industrial_complex') {
+        // ICs are buildings — register in industrialComplexes, not units array
+        this.industrialComplexes[territoryId] = nation;
+      } else {
+        const unit = this._makeUnit(unitType, nation);
+        this.units[territoryId] = [...(this.units[territoryId] || []), unit];
+      }
+
       this._emit('unit_placed', { unitType, nation, territoryId });
       this.autosave();
       return true;

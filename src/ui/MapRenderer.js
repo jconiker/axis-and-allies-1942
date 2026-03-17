@@ -29,7 +29,7 @@ const VB_W = 1400, VB_H = 780;
 
 const UNIT_CODE = {
   infantry:'INF', artillery:'ART', armor:'ARM', antiair:'AA',
-  fighter:'FTR', bomber:'BMB',
+  fighter:'FTR', bomber:'BMB', tactical_bomber:'TAC',
   submarine:'SUB', destroyer:'DD', cruiser:'CA',
   carrier:'CV', battleship:'BB', transport:'TRN',
 };
@@ -136,6 +136,7 @@ export class MapRenderer {
     this.svg          = null;
     this._cells       = null;   // Voronoi cells (computed once)
     this._terrPaths   = {};     // territoryId → <path> element
+    this._icElems     = {};     // territoryId → IC gear text element (for live updates)
     this._pinching    = false;
   }
 
@@ -354,15 +355,18 @@ export class MapRenderer {
         g.appendChild(star);
       }
 
-      // Factory icon — small, right of center
-      if (this.state.industrialComplexes?.[t.id]) {
+      // Factory icon — small, right of center (visibility updated dynamically)
+      {
         const ic = this._svgEl('text');
         ic.setAttribute('x', lx + (isLarge ? 12 : 9));
         ic.setAttribute('y', ly - r * 0.45);
         ic.setAttribute('font-size', isLarge ? '9' : '7.5');
         ic.setAttribute('opacity', '0.85');
+        ic.setAttribute('pointer-events', 'none');
         ic.textContent = '⚙';
+        ic.style.display = this.state.industrialComplexes?.[t.id] ? '' : 'none';
         g.appendChild(ic);
+        this._icElems[t.id] = ic;
       }
 
       // Territory name — small, semi-transparent, uppercase
@@ -570,9 +574,17 @@ export class MapRenderer {
 
   // ── UPDATE ───────────────────────────────────────────────────────────────────
 
+  _updateICIcons() {
+    const ics = this.state.industrialComplexes || {};
+    Object.entries(this._icElems).forEach(([tid, el]) => {
+      el.style.display = ics[tid] ? '' : 'none';
+    });
+  }
+
   _update() {
     if (!this.svg) return;
     this._updateTerritoryColors();
+    this._updateICIcons();
     this._updateUnits();
     this._updateSelections();
   }

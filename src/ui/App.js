@@ -293,11 +293,11 @@ export class App {
         const resBtn = document.getElementById('btn-research');
         if (resBtn) resBtn.style.display = 'none';
 
-        // Floating End Phase button — hide during purchase phase (panel has its own)
+        // Floating End Phase button — always visible so player can end phase
+        // even if purchase panel was closed with X
         const endBtn = document.getElementById('btn-end-phase');
         if (endBtn) {
-          const inPurchase = data.phase === 'purchase' && isHumanTurn;
-          endBtn.style.display = inPurchase ? 'none' : 'flex';
+          endBtn.style.display = 'flex';
           endBtn.disabled = !isHumanTurn;
           endBtn.style.opacity = isHumanTurn ? '1' : '0.4';
         }
@@ -534,10 +534,24 @@ export class App {
     const nation = this.state.currentNation;
     const pending = this.state.pendingPlacements[nation];
     if (pending.length === 0) return;
+
+    const nextUnit = pending[0];
+    const isPlacingIC = nextUnit === 'industrial_complex';
     const hasIC = this.state.industrialComplexes[territoryId] === nation;
-    if (!hasIC) { this._toast('Units must be placed at industrial complexes.'); return; }
-    // Place first pending unit
-    this.state.placeUnit(pending[0], nation, territoryId);
+    const ownsTerritory = this.state.ownership[territoryId] === nation;
+
+    if (isPlacingIC) {
+      // Build IC on owned territory (3+ IPC, no existing IC)
+      const ipcVal = TERRITORIES[territoryId]?.ipc ?? 0;
+      if (!ownsTerritory) { this._toast('You must own the territory to build an industrial complex.'); return; }
+      if (hasIC) { this._toast('Territory already has an industrial complex.'); return; }
+      if (ipcVal < 3) { this._toast('Industrial complexes require 3+ IPC territory.'); return; }
+    } else {
+      // Normal units must be placed at existing IC
+      if (!hasIC) { this._toast('Units must be placed at industrial complexes.'); return; }
+    }
+
+    this.state.placeUnit(nextUnit, nation, territoryId);
   }
 
   // ── TECH RESEARCH PANEL ──────────────────────────────────────────────────────
