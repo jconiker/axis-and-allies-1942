@@ -6,17 +6,17 @@ window.__TERRITORIES = TERRITORIES;
 
 // ── NATION COLORS — vintage board-game map palette ──────────────────────────
 const NATION_FILL = {
-  ussr:      '#a85848',  // dusty terra cotta / salmon (warm pinkish-red)
-  germany:   '#5070a0',  // medium slate blue (not too bright)
-  uk:        '#a88020',  // golden amber (slightly more gold)
-  japan:     '#b87020',  // amber-brown (less orange, more warm brown)
-  usa:       '#486840',  // muted sage green (darker, less bright)
-  australia: '#2a9068',  // sea green / teal (distinct from USA)
-  neutral:   '#ccc098',  // warm beige / parchment
+  ussr:      '#a85848',  // dusty terra cotta / salmon
+  germany:   '#4a6585',  // muted slate blue-gray (less vivid, more vintage)
+  uk:        '#a88020',  // golden amber
+  japan:     '#b87020',  // amber-brown
+  usa:       '#486840',  // muted sage green
+  australia: '#2a9068',  // sea green / teal
+  neutral:   '#c8bc90',  // warm beige / parchment (slightly darker)
 };
 const NATION_BORDER = {
   ussr:      '#783828',  // darker terra cotta
-  germany:   '#304878',  // darker slate
+  germany:   '#2c3d58',  // darker muted slate
   uk:        '#786010',  // darker gold
   japan:     '#885010',  // darker amber-brown
   usa:       '#285820',  // darker sage
@@ -182,6 +182,9 @@ export class MapRenderer {
     // Compute Voronoi cells ONCE (expensive but worth it)
     this._cells = computeVoronoiCells(TERRITORIES);
 
+    // Coastline shadow layer (drawn before territories for depth)
+    this._coastGroup = this._makeGroup(svg, 'coasts');
+
     // Territory polygon layer
     this._terrGroup = this._makeGroup(svg, 'territories');
 
@@ -218,15 +221,18 @@ export class MapRenderer {
         <stop offset="60%"  stop-color="#7098b0"/>
         <stop offset="100%" stop-color="#4e7888"/>
       </radialGradient>
+      <!-- Subtle paper grain for territories — vintage map feel -->
+      <filter id="paper" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4"
+          stitchTiles="stitch" result="noise"/>
+        <feColorMatrix type="saturate" values="0" in="noise" result="gray"/>
+        <feBlend in="SourceGraphic" in2="gray" mode="multiply" result="blend"/>
+        <feComposite in="blend" in2="SourceGraphic" operator="in"/>
+      </filter>
       <!-- Text shadow for label readability -->
       <filter id="txt-sh" x="-25%" y="-25%" width="150%" height="150%">
         <feDropShadow dx="0" dy="0" stdDeviation="2"
           flood-color="rgba(0,0,0,0.85)" flood-opacity="1"/>
-      </filter>
-      <!-- Subtle territory shadow for depth -->
-      <filter id="terr-sh" x="-5%" y="-5%" width="110%" height="110%">
-        <feDropShadow dx="1" dy="1" stdDeviation="1.5"
-          flood-color="rgba(0,0,0,0.3)" flood-opacity="1"/>
       </filter>
       <!-- Glow for selected territory -->
       <filter id="sel-glow" x="-30%" y="-30%" width="160%" height="160%">
@@ -264,6 +270,7 @@ export class MapRenderer {
   }
 
   _drawTerritories() {
+    this._coastGroup.innerHTML = '';
     this._terrGroup.innerHTML = '';
     this._terrPaths = {};
     const own = this.state.ownership || {};
@@ -272,6 +279,16 @@ export class MapRenderer {
       if (t.type === 'sea') return;
       const d = this._getTerrPath(t.id);
       if (!d) return;
+
+      // Coast outline: thick dark stroke behind territory for land/sea contrast
+      const coast = this._svgEl('path');
+      coast.setAttribute('d', d);
+      coast.setAttribute('fill', 'none');
+      coast.setAttribute('stroke', 'rgba(15,20,15,0.45)');
+      coast.setAttribute('stroke-width', '3');
+      coast.setAttribute('stroke-linejoin', 'round');
+      coast.setAttribute('pointer-events', 'none');
+      this._coastGroup.appendChild(coast);
 
       const owner = own[t.id] || 'neutral';
       const fill  = NATION_FILL[owner]   || NATION_FILL.neutral;
@@ -283,6 +300,7 @@ export class MapRenderer {
       path.setAttribute('stroke', stroke);
       path.setAttribute('stroke-width', '1.2');
       path.setAttribute('stroke-linejoin', 'round');
+      path.setAttribute('filter', 'url(#paper)');
       path.setAttribute('data-id', t.id);
       this._terrGroup.appendChild(path);
       this._terrPaths[t.id] = path;
@@ -311,10 +329,11 @@ export class MapRenderer {
       txt.setAttribute('x', t.x); txt.setAttribute('y', t.y);
       txt.setAttribute('text-anchor', 'middle');
       txt.setAttribute('dominant-baseline', 'middle');
-      txt.setAttribute('font-size', '10');
-      txt.setAttribute('fill', 'rgba(30,70,100,0.65)');
-      txt.setAttribute('font-family', 'Arial, sans-serif');
+      txt.setAttribute('font-size', '11');
+      txt.setAttribute('fill', 'rgba(20,55,85,0.70)');
+      txt.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
       txt.setAttribute('font-weight', 'bold');
+      txt.setAttribute('letter-spacing', '0.5');
       txt.setAttribute('pointer-events', 'none');
       txt.textContent = num;
       this._seaGroup.appendChild(txt);
