@@ -5,26 +5,28 @@ import { TERRITORY_PATHS } from '../data/territory-paths.js';
 window.__TERRITORIES = TERRITORIES;
 
 // ── NATION COLORS — vintage board-game map palette ──────────────────────────
+// Colors tuned to match the App Store reference screenshots:
+// lighter, more desaturated tones — aged paper/cartographic style
 const NATION_FILL = {
-  ussr:      '#98483c',  // dusty terra cotta — slightly more muted
-  germany:   '#445e78',  // muted slate blue-gray
-  uk:        '#987218',  // golden amber
-  japan:     '#a86818',  // amber-brown — slightly more muted
-  usa:       '#3e5c30',  // muted sage green
-  australia: '#247858',  // sea green / teal
-  neutral:   '#b8ac80',  // warm beige / parchment
+  ussr:      '#bf9888',  // muted dusty rose / terracotta (much lighter)
+  germany:   '#7090a8',  // medium steel blue-gray (lighter, cleaner)
+  uk:        '#909848',  // olive / khaki
+  japan:     '#c8a050',  // warm amber-tan
+  usa:       '#8a9c38',  // yellow-olive
+  australia: '#508040',  // medium olive green
+  neutral:   '#c8c0a0',  // light cream / parchment
 };
 const NATION_BORDER = {
-  ussr:      '#6a2e1e',  // darker terra cotta
-  germany:   '#263648',  // darker muted slate
-  uk:        '#685008',  // darker gold
-  japan:     '#784008',  // darker amber-brown
-  usa:       '#204818',  // darker sage
-  australia: '#105838',  // darker sea green
-  neutral:   '#7a6a50',  // medium brown
+  ussr:      '#906870',  // darker dusty rose
+  germany:   '#4a6880',  // darker steel blue
+  uk:        '#5a6428',  // darker olive
+  japan:     '#987030',  // darker amber
+  usa:       '#506820',  // darker yellow-olive
+  australia: '#305828',  // darker olive green
+  neutral:   '#9a9070',  // medium warm gray-brown
 };
 
-const OCEAN_COLOR = '#3a5a6e';  // darker steel blue-gray (vintage map ocean)
+const OCEAN_COLOR = '#607888';  // medium steel blue-gray (vintage map ocean)
 const VB_W = 1400, VB_H = 780;
 
 const UNIT_CODE = {
@@ -34,15 +36,15 @@ const UNIT_CODE = {
   carrier:'CV', battleship:'BB', transport:'TRN',
 };
 
-// Darker token background color per nation (tinted faction)
+// Darker token background color per nation (tinted faction — stays dark for contrast)
 const NATION_TOKEN_BG = {
-  ussr:      '#5a2018',  // dark crimson
-  germany:   '#202848',  // dark slate
-  uk:        '#604808',  // dark gold
-  japan:     '#5a3808',  // dark amber-brown
-  usa:       '#1e3818',  // dark sage
-  australia: '#0e5838',  // dark teal
-  neutral:   '#403828',  // dark tan
+  ussr:      '#6a3830',  // dark dusty crimson
+  germany:   '#283858',  // dark slate blue
+  uk:        '#484e18',  // dark olive
+  japan:     '#6a4818',  // dark amber-brown
+  usa:       '#3a5010',  // dark yellow-olive
+  australia: '#204820',  // dark olive green
+  neutral:   '#504830',  // dark warm tan
 };
 
 // ── VORONOI GEOMETRY ─────────────────────────────────────────────────────────
@@ -219,11 +221,11 @@ export class MapRenderer {
   _buildDefs(svg) {
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     defs.innerHTML = `
-      <!-- Vintage map ocean: muted steel blue-gray, darker for vintage mood -->
+      <!-- Vintage map ocean: medium steel blue-gray, lighter cartographic style -->
       <radialGradient id="ocean-grad" cx="52%" cy="40%" r="78%">
-        <stop offset="0%"   stop-color="#6898b0"/>
-        <stop offset="55%"  stop-color="#4e7898"/>
-        <stop offset="100%" stop-color="#3a5a6e"/>
+        <stop offset="0%"   stop-color="#8aacbe"/>
+        <stop offset="50%"  stop-color="#7098ae"/>
+        <stop offset="100%" stop-color="#527888"/>
       </radialGradient>
       <!-- Subtle paper grain for territories — vintage map feel -->
       <filter id="paper" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
@@ -334,7 +336,7 @@ export class MapRenderer {
       txt.setAttribute('text-anchor', 'middle');
       txt.setAttribute('dominant-baseline', 'middle');
       txt.setAttribute('font-size', '11');
-      txt.setAttribute('fill', 'rgba(20,55,85,0.70)');
+      txt.setAttribute('fill', 'rgba(20,50,75,0.65)');
       txt.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
       txt.setAttribute('font-weight', 'bold');
       txt.setAttribute('letter-spacing', '0.5');
@@ -743,7 +745,7 @@ const MAP_CSS = `
   .map-wrap {
     width: 100%; height: 100%;
     overflow: hidden; position: relative;
-    background: #3a5a6e;
+    background: #527888;
     cursor: grab;
     user-select: none;
   }
@@ -755,13 +757,13 @@ const MAP_CSS = `
     pointer-events: none; z-index: 10;
     background:
       /* top edge */
-      linear-gradient(to bottom, rgba(0,3,12,0.55) 0%, transparent 12%),
+      linear-gradient(to bottom, rgba(0,3,12,0.65) 0%, transparent 14%),
       /* bottom edge */
-      linear-gradient(to top, rgba(0,3,12,0.65) 0%, transparent 14%),
+      linear-gradient(to top, rgba(0,3,12,0.75) 0%, transparent 16%),
       /* left edge */
-      linear-gradient(to right, rgba(0,3,12,0.50) 0%, transparent 10%),
+      linear-gradient(to right, rgba(0,3,12,0.58) 0%, transparent 11%),
       /* right edge */
-      linear-gradient(to left, rgba(0,3,12,0.50) 0%, transparent 10%);
+      linear-gradient(to left, rgba(0,3,12,0.58) 0%, transparent 11%);
   }
   .map-svg {
     width: 100%; height: 100%;
