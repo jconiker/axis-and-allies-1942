@@ -13,7 +13,7 @@
 
 ## Paths
 - **Repo:** `/Users/josephconiker/Documents/claude/axisandallies/`
-- **GitHub:** TBD (create remote when ready to deploy to iPad)
+- **GitHub:** https://github.com/jconiker/axis-and-allies-1942 (private)
 
 ## Tech Stack
 - Vanilla JS ES modules + Vite 6 bundler
