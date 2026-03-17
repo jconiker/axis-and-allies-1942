@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // Change this to match your GitHub repo name exactly
-  base: '/aa-private/',
+  // Must match the GitHub repo name exactly
+  base: '/axis-and-allies-1942/',
 });
