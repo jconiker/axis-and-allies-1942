@@ -1,189 +1,297 @@
 import { getAllUnits } from '../data/units.js';
 import { NATIONS } from '../data/nations.js';
 
+// 3-char codes matching the App Store game's unit labels
+const UNIT_CODE = {
+  infantry:          'INF',
+  artillery:         'ART',
+  armor:             'ARM',
+  antiair:           'AA',
+  fighter:           'FTR',
+  bomber:            'BMB',
+  tactical_bomber:   'TAC',
+  submarine:         'SUB',
+  destroyer:         'DD',
+  cruiser:           'CA',
+  carrier:           'CV',
+  battleship:        'BB',
+  transport:         'TP',
+  industrial_complex:'IC',
+};
+
+// Built-in IC unit for the INDUSTRY tab
+const IC_UNIT = {
+  id: 'industrial_complex', name: 'Industrial Complex',
+  cost: 15, attack: 0, defense: 0, movement: 0,
+  type: 'building',
+  description: 'Produces units each round. Build in captured territory with 3+ IPC.',
+};
+
 export class PurchasePanel {
   constructor(container, app) {
     this.container = container;
     this.app = app;
     this.state = app.state;
     this._el = null;
+    this._tab = 'land';
   }
 
   show() {
     if (this._el) { this._render(); return; }
     this._el = document.createElement('div');
-    this._el.className = 'purchase-panel-wrap';
-    this._el.innerHTML = `<style>${PANEL_CSS}</style><div class="purchase-panel" id="purchase-panel"></div>`;
+    this._el.innerHTML = `<style>${PANEL_CSS}</style><div class="pp-panel" id="pp-panel"></div>`;
     this.container.appendChild(this._el);
     this._render();
   }
 
-  hide() {
-    this._el?.remove();
-    this._el = null;
-  }
+  hide() { this._el?.remove(); this._el = null; }
 
   _render() {
-    const panel = this._el?.querySelector('#purchase-panel');
+    const panel = this._el?.querySelector('#pp-panel');
     if (!panel) return;
 
-    const nation = this.state.currentNation;
-    const nationDef = NATIONS[nation];
-    const ipc = this.state.ipc[nation] || 0;
-    const pending = this.state.pendingPlacements[nation] || [];
+    const nation   = this.state.currentNation;
+    const nd       = NATIONS[nation];
+    const ipc      = this.state.ipc[nation] || 0;
+    const pending  = this.state.pendingPlacements[nation] || [];
     const allUnits = getAllUnits();
+    const spent    = pending.reduce((s, t) => s + (allUnits[t]?.cost || IC_UNIT.cost || 0), 0);
 
-    const totalPendingCost = pending.reduce((s, t) => s + (allUnits[t]?.cost || 0), 0);
-    const remaining = ipc; // ipc is already decremented on purchase
+    // Count pending by type
+    const pendingCounts = {};
+    pending.forEach(t => { pendingCounts[t] = (pendingCounts[t] || 0) + 1; });
 
-    const unitsByType = { land: [], air: [], sea: [] };
+    // Organize units by tab
+    const byTab = { land: [], sea: [], air: [], industry: [IC_UNIT] };
     Object.values(allUnits).forEach(u => {
-      if (unitsByType[u.type]) unitsByType[u.type].push(u);
+      const tab = u.type === 'building' ? 'industry' : u.type;
+      if (byTab[tab]) byTab[tab].push(u);
     });
+
+    const units = byTab[this._tab] || [];
 
     panel.innerHTML = `
-      <div class="pp-header">
-        <span style="color:${nationDef?.color};">${nationDef?.flag} ${nationDef?.name}</span>
-        <div class="pp-ipc">
-          <span class="pp-ipc-num">${remaining}</span>
-          <span class="pp-ipc-lbl"> IPC remaining</span>
-        </div>
-        <button class="pp-close" id="pp-close">✕</button>
+      <div class="pp-hdr">
+        <button class="pp-x" id="pp-x">✕</button>
+        <div class="pp-title">PURCHASE UNITS</div>
+        <div class="pp-subtitle">Units mobilized during mobilization phase</div>
       </div>
 
-      ${['land','air','sea'].map(cat => `
-        <div class="pp-section">
-          <div class="pp-cat-label">${cat.toUpperCase()}</div>
-          <div class="pp-units">
-            ${unitsByType[cat].map(u => `
-              <button class="pp-unit ${remaining < u.cost ? 'disabled' : ''}"
-                      data-type="${u.id}" title="${u.description}">
-                <span class="pp-unit-icon">${u.icon}</span>
-                <span class="pp-unit-name">${u.name}</span>
-                <div class="pp-unit-stats">
-                  <span title="Cost">💰${u.cost}</span>
-                  <span title="Attack">⚔${u.attack}</span>
-                  <span title="Defense">🛡${u.defense}</span>
-                  <span title="Move">🚀${u.movement}</span>
-                </div>
-              </button>
-            `).join('')}
-          </div>
+      <div class="pp-ipc-bar">
+        <div class="pp-ipc-item">
+          <span class="pp-ipc-label">REMAINING IPC</span>
+          <span class="pp-ipc-val ${ipc < 5 ? 'low' : ''}">${ipc}</span>
         </div>
-      `).join('')}
-
-      ${pending.length > 0 ? `
-        <div class="pp-queue">
-          <div class="pp-cat-label">PURCHASE QUEUE (${pending.length})</div>
-          <div class="pp-queue-items">
-            ${pending.map((t, i) => {
-              const u = allUnits[t];
-              return `<div class="pp-queue-item" data-idx="${i}">
-                <span>${u?.icon || ''} ${u?.name || t}</span>
-                <span class="pp-queue-cost">${u?.cost || 0} IPC</span>
-                <button class="pp-refund" data-type="${t}">↩</button>
-              </div>`;
-            }).join('')}
-          </div>
-          <div class="pp-total">Total: ${totalPendingCost} IPC spent</div>
+        <div class="pp-ipc-sep"></div>
+        <div class="pp-ipc-item right">
+          <span class="pp-ipc-label">PURCHASED</span>
+          <span class="pp-ipc-val">${pending.length}</span>
         </div>
-      ` : ''}
+      </div>
 
-      <button class="btn pp-done" id="pp-done">Done Purchasing →</button>
+      <div class="pp-tabs">
+        ${['land','sea','air','industry'].map(t => `
+          <button class="pp-tab ${this._tab === t ? 'active' : ''}" data-tab="${t}">
+            ${t.toUpperCase()}
+          </button>`).join('')}
+      </div>
+
+      <div class="pp-col-hdr">
+        <span class="pp-col-unit">UNIT</span>
+        <span class="pp-col-stat">ATK</span>
+        <span class="pp-col-stat">DEF</span>
+        <span class="pp-col-stat">MOV</span>
+        <span class="pp-col-stat cost">COST</span>
+        <span class="pp-col-buy">PURCHASE</span>
+      </div>
+
+      <div class="pp-list">
+        ${units.map(u => this._unitRow(u, ipc, pendingCounts[u.id] || 0)).join('')}
+      </div>
+
+      <div class="pp-footer">
+        <div class="pp-spent-lbl">SPENT: <b>${spent} IPC</b></div>
+        <button class="pp-end" id="pp-end">END PHASE</button>
+      </div>
     `;
 
-    // Events
-    panel.querySelectorAll('.pp-unit:not(.disabled)').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.state.purchaseUnit(btn.dataset.type, nation);
-        this._render();
-      });
-      btn.addEventListener('touchend', (e) => { e.preventDefault(); btn.click(); });
-    });
-    panel.querySelectorAll('.pp-refund').forEach(btn => {
-      btn.addEventListener('click', () => {
-        this.state.refundUnit(btn.dataset.type, nation);
-        this._render();
-      });
-    });
-    panel.getElementById?.('pp-close') || panel.querySelector('#pp-close')?.addEventListener('click', () => {
-      this.hide();
-    });
-    panel.querySelector('#pp-done')?.addEventListener('click', () => {
+    // Tab switching
+    panel.querySelectorAll('.pp-tab').forEach(b =>
+      b.addEventListener('click', () => { this._tab = b.dataset.tab; this._render(); }));
+
+    // Buy / refund buttons
+    panel.querySelectorAll('.pp-plus').forEach(b =>
+      b.addEventListener('click', () => { this.state.purchaseUnit(b.dataset.type, nation); this._render(); }));
+    panel.querySelectorAll('.pp-minus').forEach(b =>
+      b.addEventListener('click', () => { this.state.refundUnit(b.dataset.type, nation); this._render(); }));
+
+    // Close + end phase
+    panel.querySelector('#pp-x')?.addEventListener('click', () => this.hide());
+    panel.querySelector('#pp-end')?.addEventListener('click', () => {
       this.hide();
       this.app.turnEngine.advancePhase();
     });
   }
+
+  _unitRow(u, ipc, qty) {
+    const canBuy = ipc >= u.cost;
+    const isBuilding = u.type === 'building';
+    const atk = (u.attack === 0 && (isBuilding || u.shootsAtAir)) ? '—' : u.attack;
+    const def = (u.defense === 0 && isBuilding) ? '—' : u.defense;
+    const mov = (u.movement === 0 && isBuilding) ? '—' : u.movement;
+    const code = UNIT_CODE[u.id] || u.id.slice(0, 3).toUpperCase();
+
+    return `
+      <div class="pp-row ${!canBuy && qty === 0 ? 'dim' : ''}">
+        <div class="pp-unit-art">
+          <div class="pp-art-circle" title="${u.description || ''}">${code}</div>
+          <span class="pp-unit-name">${u.name.toUpperCase()}</span>
+        </div>
+        <span class="pp-stat">${atk}</span>
+        <span class="pp-stat">${def}</span>
+        <span class="pp-stat">${mov}</span>
+        <span class="pp-stat cost">${u.cost}</span>
+        <div class="pp-buy">
+          <button class="pp-minus" data-type="${u.id}" ${qty === 0 ? 'disabled' : ''}>−</button>
+          <span class="pp-qty ${qty > 0 ? 'has' : ''}">${qty}</span>
+          <button class="pp-plus" data-type="${u.id}" ${!canBuy ? 'disabled' : ''}>+</button>
+        </div>
+      </div>`;
+  }
 }
 
 const PANEL_CSS = `
-  .purchase-panel-wrap {
-    position: fixed; inset: 0;
-    background: rgba(5,10,20,0.85);
-    z-index: 300;
-    display: flex; align-items: flex-end;
-  }
-  .purchase-panel {
-    width: 100%; max-height: 75vh;
-    background: #111e30; border-top: 2px solid #1e3a5a;
-    border-radius: 16px 16px 0 0;
-    overflow-y: auto; padding: 16px;
-    font-family: Georgia, serif;
-    -webkit-overflow-scrolling: touch;
-  }
-  .pp-header {
-    display: flex; align-items: center; gap: 12px;
-    margin-bottom: 12px; font-size: 1rem; font-weight: bold; color: #d4c9a8;
-  }
-  .pp-ipc { margin-left: auto; display: flex; align-items: baseline; gap: 4px; }
-  .pp-ipc-num { font-size: 1.4rem; color: #c8a040; font-weight: bold; }
-  .pp-ipc-lbl { font-size: 0.75rem; color: #6a7a8a; }
-  .pp-close {
-    background: none; border: none; color: #6a7a8a; font-size: 1.1rem;
-    cursor: pointer; padding: 4px 8px;
+  .pp-panel {
+    position: fixed; right: 0; top: 52px; bottom: 0;
+    width: min(360px, 46vw);
+    background: #161616;
+    border-left: 2px solid #2c2c2c;
+    display: flex; flex-direction: column;
+    font-family: 'Arial Narrow', Arial, sans-serif;
+    color: #d0d0c0; z-index: 300;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.8);
+    overflow: hidden;
   }
 
-  .pp-section { margin-bottom: 12px; }
-  .pp-cat-label {
-    font-size: 0.7rem; letter-spacing: 1.5px; color: #6a7a8a;
-    text-transform: uppercase; margin-bottom: 6px;
+  /* Header */
+  .pp-hdr {
+    background: #1c1c1c;
+    border-bottom: 1px solid #2c2c2c;
+    padding: 10px 14px 8px;
+    position: relative; flex-shrink: 0;
   }
-  .pp-units { display: flex; flex-wrap: wrap; gap: 6px; }
-  .pp-unit {
-    background: #0d1925; border: 1px solid #1e3a5a;
-    border-radius: 8px; padding: 8px 10px;
-    display: flex; flex-direction: column; align-items: center; gap: 3px;
-    cursor: pointer; min-width: 72px; min-height: 80px;
-    font-family: Georgia, serif; color: #d4c9a8;
-    -webkit-tap-highlight-color: transparent;
-    transition: background 0.1s;
+  .pp-x {
+    position: absolute; top: 8px; right: 10px;
+    background: #2a2a2a; border: none; color: #888;
+    width: 28px; height: 28px; border-radius: 50%;
+    font-size: 0.9rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
   }
-  .pp-unit:active { background: #1a3050; }
-  .pp-unit.disabled { opacity: 0.35; cursor: not-allowed; }
-  .pp-unit-icon { font-size: 1.4rem; }
-  .pp-unit-name { font-size: 0.65rem; text-align: center; color: #c8a040; }
-  .pp-unit-stats { display: flex; gap: 4px; font-size: 0.6rem; color: #6a8aaa; }
+  .pp-x:hover { background: #c83018; color: #fff; }
+  .pp-title    { font-size: 0.88rem; font-weight: 900; color: #e0d8c0; letter-spacing: 1.5px; }
+  .pp-subtitle { font-size: 0.62rem; color: #555; margin-top: 2px; }
 
-  .pp-queue { margin-top: 8px; background: #0d1925; border-radius: 8px; padding: 10px; }
-  .pp-queue-items { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
-  .pp-queue-item {
-    display: flex; align-items: center; gap: 8px;
-    color: #d4c9a8; font-size: 0.85rem;
+  /* IPC row */
+  .pp-ipc-bar {
+    display: flex; align-items: center;
+    background: #111; border-bottom: 1px solid #2c2c2c;
+    padding: 8px 14px; flex-shrink: 0;
   }
-  .pp-queue-cost { margin-left: auto; color: #c8a040; }
-  .pp-refund {
-    background: #2a1a1a; border: 1px solid #5a2a2a; border-radius: 4px;
-    color: #ff8a8a; padding: 2px 6px; cursor: pointer; font-size: 0.8rem;
-  }
-  .pp-total { margin-top: 8px; font-size: 0.75rem; color: #6a7a8a; text-align: right; }
+  .pp-ipc-item       { display: flex; flex-direction: column; flex: 1; }
+  .pp-ipc-item.right { align-items: flex-end; }
+  .pp-ipc-label { font-size: 0.56rem; color: #555; letter-spacing: 1px; }
+  .pp-ipc-val   { font-size: 1.3rem; font-weight: 900; color: #c8a040; line-height: 1; }
+  .pp-ipc-val.low { color: #e04030; }
+  .pp-ipc-sep   { width: 1px; background: #2c2c2c; height: 30px; margin: 0 10px; }
 
-  .pp-done {
-    width: 100%; margin-top: 12px; padding: 14px;
-    background: #c8a040; color: #0a1628;
-    border: none; border-radius: 8px; font-size: 1rem; font-weight: bold;
-    font-family: Georgia, serif; cursor: pointer;
-    min-height: 52px;
-    -webkit-tap-highlight-color: transparent;
+  /* Tabs */
+  .pp-tabs {
+    display: flex; background: #111;
+    border-bottom: 2px solid #2c2c2c; flex-shrink: 0;
   }
-  .pp-done:active { background: #a88030; }
+  .pp-tab {
+    flex: 1; padding: 8px 0; border: none;
+    background: transparent; color: #555;
+    font-family: inherit; font-size: 0.68rem; font-weight: 900;
+    letter-spacing: 1px; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+  }
+  .pp-tab.active       { color: #e8c060; border-bottom-color: #e8c060; }
+  .pp-tab:hover:not(.active) { color: #999; }
+
+  /* Column headers */
+  .pp-col-hdr {
+    display: flex; align-items: center;
+    padding: 5px 14px; background: #0e0e0e;
+    border-bottom: 1px solid #222; flex-shrink: 0;
+  }
+  .pp-col-unit { flex: 1; font-size: 0.56rem; color: #444; letter-spacing: 1px; }
+  .pp-col-stat { width: 28px; text-align: center; font-size: 0.56rem; color: #444; }
+  .pp-col-stat.cost { color: #888; }
+  .pp-col-buy  { width: 82px; text-align: center; font-size: 0.56rem; color: #444; }
+
+  /* Unit list */
+  .pp-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .pp-row {
+    display: flex; align-items: center;
+    padding: 7px 14px; border-bottom: 1px solid #1c1c1c;
+  }
+  .pp-row:hover { background: #1e1e1e; }
+  .pp-row.dim   { opacity: 0.38; }
+
+  .pp-unit-art {
+    flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0;
+  }
+  .pp-art-circle {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #1a1a28; border: 2px solid #3a3a52;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.58rem; font-weight: 900; color: #8a9ab0;
+    flex-shrink: 0; letter-spacing: 0;
+  }
+  .pp-unit-name {
+    font-size: 0.68rem; font-weight: bold; color: #b0a888;
+    letter-spacing: 0.5px; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pp-stat      { width: 28px; text-align: center; font-size: 0.82rem; color: #c8c8b0; font-weight: bold; }
+  .pp-stat.cost { color: #c8a040; font-size: 0.88rem; }
+
+  /* Buy controls */
+  .pp-buy {
+    width: 82px; display: flex; align-items: center;
+    justify-content: center; gap: 4px;
+  }
+  .pp-minus, .pp-plus {
+    width: 24px; height: 24px; border-radius: 50%;
+    border: 1px solid #3a3a22; background: #2a2a14;
+    color: #c8a040; font-size: 1rem; font-weight: bold;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    line-height: 1; -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
+  }
+  .pp-minus:disabled, .pp-plus:disabled { opacity: 0.2; cursor: not-allowed; }
+  .pp-minus:not(:disabled):hover,
+  .pp-plus:not(:disabled):hover  { background: #c8a040; color: #0a0a05; }
+  .pp-qty     { width: 20px; text-align: center; font-size: 0.88rem; color: #808060; font-weight: bold; }
+  .pp-qty.has { color: #ffd840; }
+
+  /* Footer */
+  .pp-footer {
+    background: #111; border-top: 2px solid #2c2c2c;
+    padding: 10px 14px 14px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .pp-spent-lbl { font-size: 0.68rem; color: #555; flex: 1; }
+  .pp-spent-lbl b { color: #c8a040; }
+  .pp-end {
+    background: #b83010; color: #fff;
+    border: none; border-radius: 5px;
+    padding: 10px 18px; font-size: 0.82rem; font-weight: 900;
+    letter-spacing: 1.5px; cursor: pointer; font-family: inherit;
+    min-height: 44px; -webkit-tap-highlight-color: transparent;
+  }
+  .pp-end:hover  { background: #d84020; }
+  .pp-end:active { background: #902808; }
 `;

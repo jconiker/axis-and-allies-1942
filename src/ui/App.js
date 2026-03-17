@@ -40,10 +40,9 @@ export class App {
   _buildShell() {
     this.container.innerHTML = `
       <style>${APP_CSS}</style>
-      <div id="game-wrap" style="display:none;width:100%;height:100%;display:none;flex-direction:column;">
+      <div id="game-wrap" style="display:none;width:100%;height:100%;flex-direction:column;">
         <div id="hud-root"></div>
         <div id="map-root" style="flex:1;overflow:hidden;position:relative;"></div>
-        <div id="phase-bar"></div>
       </div>
       <div id="overlay-root"></div>
     `;
@@ -81,74 +80,107 @@ export class App {
   }
 
   _showSetupScreen() {
+    const NAT_INFO = {
+      ussr:    { sym: '★', label: 'SOVIET UNION', side: 'allies', color: '#c02828' },
+      germany: { sym: '✚', label: 'GERMANY',      side: 'axis',   color: '#6090a0' },
+      uk:      { sym: '⊕', label: 'U.K.',          side: 'allies', color: '#c88018' },
+      japan:   { sym: '✿', label: 'JAPAN',         side: 'axis',   color: '#d0a020' },
+      usa:     { sym: '★', label: 'U.S.A.',         side: 'allies', color: '#3a8030' },
+    };
+
     this._showOverlay(`
-      <div class="screen-card">
-        <h1>⚔ AXIS &amp; ALLIES</h1>
-        <p class="sub">1942 — Second Edition</p>
+      <div class="ns-screen">
+        <h1 class="ns-title">AXIS &amp; ALLIES</h1>
+        <p class="ns-sub">1942 — SECOND EDITION</p>
 
-        <div class="setup-section">
-          <h3>Choose Your Side</h3>
-          <div class="side-btns">
-            <button class="btn btn-allies" id="btn-allies">
-              🤝 Play Allies<br>
-              <small>USSR · UK · USA</small>
-            </button>
-            <button class="btn btn-axis" id="btn-axis">
-              🎯 Play Axis<br>
-              <small>Germany · Japan</small>
-            </button>
+        <div class="ns-combatants">
+          <div class="ns-side">
+            <div class="ns-side-label axis-lbl">AXIS</div>
+            ${['germany','japan'].map(n => `
+              <div class="ns-card ${n}" data-nation="${n}">
+                <div class="ns-card-sym" style="color:${NAT_INFO[n].color}">${NAT_INFO[n].sym}</div>
+                <div class="ns-card-name">${NAT_INFO[n].label}</div>
+                <div class="ns-card-type">
+                  <button class="ns-type-btn human" data-nation="${n}" data-type="human">HUMAN</button>
+                  <button class="ns-type-btn ai active" data-nation="${n}" data-type="ai">AI</button>
+                </div>
+              </div>`).join('')}
+          </div>
+
+          <div class="ns-vs">VS</div>
+
+          <div class="ns-side">
+            <div class="ns-side-label allies-lbl">ALLIES</div>
+            ${['ussr','uk','usa'].map(n => `
+              <div class="ns-card ${n}" data-nation="${n}">
+                <div class="ns-card-sym" style="color:${NAT_INFO[n].color}">${NAT_INFO[n].sym}</div>
+                <div class="ns-card-name">${NAT_INFO[n].label}</div>
+                <div class="ns-card-type">
+                  <button class="ns-type-btn human" data-nation="${n}" data-type="human">HUMAN</button>
+                  <button class="ns-type-btn ai active" data-nation="${n}" data-type="ai">AI</button>
+                </div>
+              </div>`).join('')}
           </div>
         </div>
 
-        <div class="setup-section">
-          <h3>AI Difficulty</h3>
-          <div class="diff-btns">
-            <button class="btn btn-diff active" data-diff="easy">Easy</button>
-            <button class="btn btn-diff" data-diff="normal">Normal</button>
-            <button class="btn btn-diff" data-diff="hard">Hard</button>
+        <div class="ns-settings">
+          <div class="ns-row">
+            <span class="ns-row-label">⚙ AI DIFFICULTY</span>
+            <div class="ns-diff">
+              <button class="ns-diff-btn" data-diff="easy">EASY</button>
+              <button class="ns-diff-btn active" data-diff="normal">NORMAL</button>
+              <button class="ns-diff-btn" data-diff="hard">HARD</button>
+            </div>
+          </div>
+          <div class="ns-row">
+            <span class="ns-row-label">⚑ SCENARIO</span>
+            <span class="ns-row-val">1942 SECOND EDITION</span>
           </div>
         </div>
 
-        <button class="btn btn-primary" id="btn-start" style="margin-top:16px;">
-          Start Game
-        </button>
+        <button class="ns-start" id="btn-start">START CAMPAIGN →</button>
       </div>
     `);
 
-    let chosenSide = null;
-    let difficulty = 'easy';
+    const playerNations = new Set();
+    let difficulty = 'normal';
 
-    document.getElementById('btn-allies').addEventListener('click', () => {
-      chosenSide = 'allies';
-      document.getElementById('btn-allies').classList.add('active');
-      document.getElementById('btn-axis').classList.remove('active');
+    // Per-nation human/ai toggle
+    document.querySelectorAll('.ns-type-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nation = btn.dataset.nation;
+        const type   = btn.dataset.type;
+        // Update buttons for this nation
+        document.querySelectorAll(`.ns-type-btn[data-nation="${nation}"]`).forEach(b => {
+          b.classList.toggle('active', b.dataset.type === type);
+        });
+        if (type === 'human') playerNations.add(nation);
+        else                  playerNations.delete(nation);
+      });
     });
-    document.getElementById('btn-axis').addEventListener('click', () => {
-      chosenSide = 'axis';
-      document.getElementById('btn-axis').classList.add('active');
-      document.getElementById('btn-allies').classList.remove('active');
-    });
-    document.querySelectorAll('.btn-diff').forEach(b => {
+
+    document.querySelectorAll('.ns-diff-btn').forEach(b => {
       b.addEventListener('click', () => {
-        document.querySelectorAll('.btn-diff').forEach(x => x.classList.remove('active'));
+        document.querySelectorAll('.ns-diff-btn').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
         difficulty = b.dataset.diff;
       });
     });
+
     document.getElementById('btn-start').addEventListener('click', () => {
-      if (!chosenSide) { alert('Please choose a side first!'); return; }
-      this._startNewGame(chosenSide, difficulty);
+      if (playerNations.size === 0) {
+        // Default: play as Allies if nothing chosen
+        playerNations.add('ussr'); playerNations.add('uk'); playerNations.add('usa');
+      }
+      this._startNewGame([...playerNations], difficulty);
     });
   }
 
-  _startNewGame(playerSide, difficulty) {
-    // Assign players vs AI
+  _startNewGame(playerNations, difficulty) {
     TURN_ORDER.forEach(n => {
-      const side = NATIONS[n].side;
-      this.state.players[n] = (side === playerSide) ? 'human' : 'ai';
+      this.state.players[n] = playerNations.includes(n) ? 'human' : 'ai';
     });
     this.ai.difficulty = difficulty;
-
     this.state.loadScenario(SCENARIO_1942);
     this._launchGame();
   }
@@ -189,17 +221,28 @@ export class App {
     }
   }
 
-  // ── PHASE BAR ───────────────────────────────────────────────────────────────
+  // ── FLOATING CONTROLS ───────────────────────────────────────────────────────
 
   _buildPhaseBar() {
-    const bar = document.getElementById('phase-bar');
-    bar.innerHTML = `
-      <div class="phase-bar">
-        <button class="btn btn-phase" id="btn-end-phase">End Phase →</button>
-        <div id="phase-hint" class="phase-hint"></div>
-        <button class="btn btn-tech" id="btn-research" style="display:none">🔬 Research</button>
-      </div>
+    // Remove any previous floating controls
+    document.getElementById('float-controls')?.remove();
+
+    const fc = document.createElement('div');
+    fc.id = 'float-controls';
+    fc.innerHTML = `
+      <style>${FLOAT_CSS}</style>
+      <!-- Round END PHASE button bottom-right -->
+      <button class="float-end-btn" id="btn-end-phase">
+        <span>END</span><span>PHASE</span>
+      </button>
+      <!-- Research button (shown only during purchase) -->
+      <button class="float-research-btn" id="btn-research" style="display:none">🔬</button>
+      <!-- Phase hint bottom-center -->
+      <div class="float-hint" id="phase-hint"></div>
+      <!-- AI thinking banner -->
     `;
+    document.body.appendChild(fc);
+
     document.getElementById('btn-end-phase').addEventListener('click', () => this._handleEndPhase());
     document.getElementById('btn-research')?.addEventListener('click', () => this._showTechPanel());
   }
@@ -237,13 +280,15 @@ export class App {
         // Show AI thinking indicator for AI turns
         this._setAIIndicator(!isHumanTurn);
 
-        // Research button visible during human purchase phase
+        // Research button only during purchase (handled inside purchase panel instead)
         const resBtn = document.getElementById('btn-research');
-        if (resBtn) resBtn.style.display = (data.phase === 'purchase' && isHumanTurn) ? 'block' : 'none';
+        if (resBtn) resBtn.style.display = 'none';
 
-        // End Phase button disabled during AI turns
+        // Floating End Phase button — hide during purchase phase (panel has its own)
         const endBtn = document.getElementById('btn-end-phase');
         if (endBtn) {
+          const inPurchase = data.phase === 'purchase' && isHumanTurn;
+          endBtn.style.display = inPurchase ? 'none' : 'flex';
           endBtn.disabled = !isHumanTurn;
           endBtn.style.opacity = isHumanTurn ? '1' : '0.4';
         }
@@ -444,66 +489,166 @@ export class App {
 
 // ── GLOBAL CSS ───────────────────────────────────────────────────────────────
 const APP_CSS = `
+  /* ── Overlay / base ── */
   .screen-overlay {
     position: fixed; inset: 0;
-    background: rgba(5,10,20,0.92);
+    background: rgba(5,8,14,0.95);
     display: flex; align-items: center; justify-content: center;
     z-index: 500;
+    font-family: 'Arial Narrow', Arial, sans-serif;
   }
+
+  /* ── Resume screen ── */
   .screen-card {
-    background: #111e30;
-    border: 1px solid #1e3a5a;
-    border-radius: 12px;
-    padding: 32px 40px;
-    text-align: center;
-    max-width: 480px;
-    width: 90%;
-    box-shadow: 0 8px 48px rgba(0,0,0,0.8);
+    background: #141810; border: 1px solid #2c3018;
+    border-radius: 10px; padding: 32px 40px; text-align: center;
+    max-width: 420px; width: 90%;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.9);
+    font-family: 'Arial Narrow', Arial, sans-serif;
   }
-  .screen-card h1 { font-size: 1.8rem; color: #c8a040; letter-spacing: 2px; }
-  .screen-card .sub { color: #6a7a8a; margin: 4px 0 24px; font-size: 0.9rem; }
-  .setup-section { margin: 16px 0; text-align: left; }
-  .setup-section h3 { color: #d4c9a8; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
-  .side-btns, .diff-btns { display: flex; gap: 10px; }
-  .resume-info { background: #0d1925; border-radius: 8px; padding: 16px; margin: 16px 0; }
-  .resume-info p { color: #d4c9a8; margin: 4px 0; }
-  .resume-info .dim { color: #6a7a8a; font-size: 0.85rem; }
-  .btn-group { display: flex; gap: 10px; margin-top: 16px; }
+  .screen-card h1  { font-size: 1.8rem; color: #c8a040; letter-spacing: 3px; font-weight: 900; }
+  .screen-card .sub { color: #5a6840; margin: 4px 0 20px; font-size: 0.8rem; letter-spacing: 2px; }
+  .resume-info { background: #0e1208; border-radius: 6px; padding: 14px; margin: 14px 0; border: 1px solid #2c3018; }
+  .resume-info p   { color: #c0b880; margin: 4px 0; font-size: 0.9rem; }
+  .resume-info .dim { color: #5a6040; font-size: 0.8rem; }
+  .btn-group { display: flex; gap: 10px; margin-top: 14px; }
 
   .btn {
-    padding: 12px 20px; border: none; border-radius: 8px;
-    font-family: inherit; font-size: 0.95rem; font-weight: bold;
-    cursor: pointer; transition: all 0.15s; flex: 1;
+    padding: 12px 20px; border: none; border-radius: 5px;
+    font-family: inherit; font-size: 0.88rem; font-weight: 900; letter-spacing: 1px;
+    cursor: pointer; flex: 1; min-height: 46px;
     -webkit-tap-highlight-color: transparent;
-    min-height: 48px;
   }
-  .btn:active { transform: scale(0.97); }
-  .btn-primary   { background: #c8a040; color: #0a1628; }
-  .btn-secondary { background: #1e3a5a; color: #d4c9a8; }
-  .btn-allies    { background: #1e3a5a; color: #6ad4ff; border: 1px solid #2a5a8a; font-size: 0.9rem; }
-  .btn-axis      { background: #2a1a1a; color: #ff8a8a; border: 1px solid #5a2a2a; font-size: 0.9rem; }
-  .btn-diff      { background: #1a2a1a; color: #d4c9a8; border: 1px solid #2a3a2a; font-size: 0.85rem; }
-  .btn.active    { outline: 2px solid #c8a040; }
-  .btn-allies.active { background: #1e4a6a; }
-  .btn-axis.active   { background: #4a1a1a; }
+  .btn-primary   { background: #b83010; color: #fff; }
+  .btn-secondary { background: #1e2814; color: #a0a880; border: 1px solid #2c3820; }
   .victory h1    { color: #c8a040; font-size: 2rem; margin-bottom: 12px; }
 
-  .phase-bar {
-    display: flex; align-items: center; gap: 12px;
-    padding: 8px 16px;
-    background: #0d1925;
-    border-top: 1px solid #1e3a5a;
+  /* ── NEW GAME setup screen ── */
+  .ns-screen {
+    width: min(720px, 95vw);
+    background: #111408;
+    border: 1px solid #2a2c18;
+    border-radius: 10px;
+    padding: 24px 28px 20px;
+    box-shadow: 0 8px 64px rgba(0,0,0,0.95);
+    font-family: 'Arial Narrow', Arial, sans-serif;
   }
-  .btn-phase { flex: 0 0 auto; background: #c8a040; color: #0a1628; padding: 10px 20px; font-size: 0.9rem; }
-  .btn-tech  { flex: 0 0 auto; background: #2a2a4a; color: #aaaaee; border: 1px solid #4a4a7a; padding: 10px 16px; font-size: 0.85rem; }
-  .phase-hint { flex: 1; color: #6a7a8a; font-size: 0.85rem; }
+  .ns-title {
+    font-size: 2rem; color: #c8a040; letter-spacing: 4px; font-weight: 900;
+    text-align: center; margin: 0 0 4px;
+  }
+  .ns-sub {
+    text-align: center; font-size: 0.72rem; color: #5a6040;
+    letter-spacing: 3px; margin: 0 0 20px;
+  }
 
+  /* Combatants grid */
+  .ns-combatants {
+    display: flex; align-items: flex-start; gap: 16px;
+    margin-bottom: 18px;
+  }
+  .ns-side       { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .ns-side-label { font-size: 0.72rem; font-weight: 900; letter-spacing: 2px; text-align: center; margin-bottom: 4px; }
+  .axis-lbl      { color: #d06060; }
+  .allies-lbl    { color: #6090d0; }
+  .ns-vs {
+    font-size: 1.1rem; font-weight: 900; color: #5a5840;
+    align-self: center; padding: 0 4px;
+  }
+
+  /* Nation card */
+  .ns-card {
+    background: #0e1008; border: 1px solid #282a18;
+    border-radius: 6px; padding: 10px 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .ns-card-sym  { font-size: 1.4rem; flex-shrink: 0; width: 28px; text-align: center; }
+  .ns-card-name { flex: 1; font-size: 0.72rem; font-weight: 900; color: #c0b880; letter-spacing: 1px; }
+  .ns-card-type { display: flex; gap: 3px; }
+  .ns-type-btn {
+    padding: 4px 8px; border: 1px solid #2c2c18;
+    background: #0a0c06; color: #5a5a40;
+    font-family: inherit; font-size: 0.6rem; font-weight: 900;
+    letter-spacing: 0.5px; cursor: pointer; border-radius: 3px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ns-type-btn.active.human { background: #1a2a10; color: #60e840; border-color: #40a820; }
+  .ns-type-btn.active.ai   { background: #2a1a10; color: #e87840; border-color: #a04810; }
+
+  /* Settings */
+  .ns-settings { border-top: 1px solid #2a2c18; padding-top: 14px; margin-bottom: 16px; }
+  .ns-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .ns-row-label { font-size: 0.72rem; color: #7a7850; letter-spacing: 1px; flex: 1; }
+  .ns-row-val   { font-size: 0.72rem; color: #c0b060; font-weight: bold; }
+  .ns-diff { display: flex; gap: 4px; }
+  .ns-diff-btn {
+    padding: 5px 12px; border: 1px solid #2c2c18;
+    background: #0e0e08; color: #5a5840;
+    font-family: inherit; font-size: 0.65rem; font-weight: 900;
+    letter-spacing: 1px; cursor: pointer; border-radius: 3px;
+  }
+  .ns-diff-btn.active { background: #1e2010; color: #e8c040; border-color: #a08020; }
+
+  /* Start button */
+  .ns-start {
+    width: 100%; padding: 14px; border: none; border-radius: 6px;
+    background: #b83010; color: #fff;
+    font-family: inherit; font-size: 0.95rem; font-weight: 900; letter-spacing: 2px;
+    cursor: pointer; min-height: 50px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ns-start:hover  { background: #d84020; }
+  .ns-start:active { background: #902808; }
+
+  /* Toast */
   .toast {
-    position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
-    background: #1e3a5a; color: #d4c9a8; border: 1px solid #2a5a8a;
-    border-radius: 8px; padding: 10px 20px; font-size: 0.9rem;
+    position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(16px);
+    background: #1c1808; color: #c0b060; border: 1px solid #3a3420;
+    border-radius: 6px; padding: 10px 20px; font-size: 0.85rem;
     opacity: 0; transition: all 0.25s; z-index: 900; white-space: nowrap;
-    pointer-events: none;
+    pointer-events: none; font-family: 'Arial Narrow', Arial, sans-serif;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+`;
+
+// ── FLOATING CONTROLS CSS ────────────────────────────────────────────────────
+const FLOAT_CSS = `
+  /* Round END PHASE button — bottom right, like App Store */
+  .float-end-btn {
+    position: fixed; bottom: 22px; right: 22px;
+    width: 64px; height: 64px; border-radius: 50%;
+    background: #b82010; border: 3px solid #e03020;
+    color: #fff;
+    font-family: 'Arial Narrow', Arial, sans-serif;
+    font-size: 0.54rem; font-weight: 900; letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 1px; z-index: 400;
+    box-shadow: 0 4px 20px rgba(180,30,10,0.7);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .float-end-btn:disabled { opacity: 0.25; cursor: not-allowed; box-shadow: none; }
+  .float-end-btn:not(:disabled):hover  { background: #d03020; }
+  .float-end-btn:not(:disabled):active { transform: scale(0.93); }
+
+  /* Research button */
+  .float-research-btn {
+    position: fixed; bottom: 96px; right: 22px;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: #1a1a3a; border: 2px solid #4040a0;
+    color: #aaaaee; font-size: 1.1rem;
+    cursor: pointer; z-index: 400;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 12px rgba(0,0,120,0.5);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Phase hint */
+  .float-hint {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    color: #5a6040; font-size: 0.78rem; font-family: 'Arial Narrow', Arial, sans-serif;
+    pointer-events: none; z-index: 399; white-space: nowrap;
+    text-shadow: 0 1px 4px #000;
+  }
 `;
