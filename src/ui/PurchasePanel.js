@@ -1,18 +1,18 @@
 import { getAllUnits, getUnitsForNation, ADVANCED_UNITS } from '../data/units.js';
 import { NATIONS } from '../data/nations.js';
 
-// 3-char codes matching the App Store game's unit labels
+// Short codes matching the map token display style
 const UNIT_CODE = {
-  infantry:          'INF',
-  artillery:         'ART',
-  armor:             'ARM',
+  infantry:          'I',
+  artillery:         'A',
+  armor:             'T',
   antiair:           'AA',
-  fighter:           'FTR',
-  bomber:            'BMB',
-  tactical_bomber:   'TAC',
-  submarine:         'SUB',
-  destroyer:         'DD',
-  cruiser:           'CA',
+  fighter:           'F',
+  bomber:            'B',
+  tactical_bomber:   'TB',
+  submarine:         'S',
+  destroyer:         'D',
+  cruiser:           'C',
   carrier:           'CV',
   battleship:        'BB',
   transport:         'TP',
@@ -124,7 +124,7 @@ export class PurchasePanel {
       </div>
 
       <div class="pp-list">
-        ${units.map(u => this._unitRow(u, ipc, pendingCounts[u.id] || 0)).join('')}
+        ${units.map(u => this._unitRow(u, ipc, pendingCounts[u.id] || 0, nd)).join('')}
       </div>
 
       <div class="pp-footer">
@@ -158,18 +158,22 @@ export class PurchasePanel {
     });
   }
 
-  _unitRow(u, ipc, qty) {
+  _unitRow(u, ipc, qty, nd) {
     const canBuy = ipc >= u.cost;
     const isBuilding = u.type === 'building';
     const atk = (u.attack === 0 && (isBuilding || u.shootsAtAir)) ? '—' : u.attack;
     const def = (u.defense === 0 && isBuilding) ? '—' : u.defense;
     const mov = (u.movement === 0 && isBuilding) ? '—' : u.movement;
     const code = UNIT_CODE[u.id] || u.id.slice(0, 3).toUpperCase();
+    // Use nation color for the unit circle border (matches map token color scheme)
+    const natColor = nd?.color || '#4a6a8a';
 
     return `
       <div class="pp-row ${!canBuy && qty === 0 ? 'dim' : ''}">
         <div class="pp-unit-art">
-          <div class="pp-art-circle" title="${u.description || ''}">${code}</div>
+          <div class="pp-art-circle" style="border-color:${natColor}40;box-shadow:0 0 6px ${natColor}30" title="${u.description || ''}">
+            <span class="pp-art-code" style="color:${natColor}">${code}</span>
+          </div>
           <span class="pp-unit-name">${u.name.toUpperCase()}</span>
         </div>
         <span class="pp-stat">${atk}</span>
@@ -270,14 +274,18 @@ const PANEL_CSS = `
     flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0;
   }
   .pp-art-circle {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: #1a1a28; border: 2px solid #3a3a52;
+    width: 38px; height: 38px; border-radius: 50%;
+    background: #111118; border: 2px solid #3a3a52;
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.58rem; font-weight: 900; color: #8a9ab0;
-    flex-shrink: 0; letter-spacing: 0;
+    flex-shrink: 0; position: relative; overflow: hidden;
+  }
+  .pp-art-code {
+    font-size: 0.6rem; font-weight: 900; letter-spacing: -0.3px;
+    line-height: 1; z-index: 1; text-align: center;
+    font-family: 'Arial Narrow', Arial, sans-serif;
   }
   .pp-unit-name {
-    font-size: 0.68rem; font-weight: bold; color: #b0a888;
+    font-size: 0.72rem; font-weight: bold; color: #c0b890;
     letter-spacing: 0.5px; white-space: nowrap; overflow: hidden;
     text-overflow: ellipsis;
   }

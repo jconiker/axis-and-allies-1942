@@ -1,9 +1,9 @@
 import { App } from './ui/App.js';
 
-// Register service worker for offline PWA support
-if ('serviceWorker' in navigator) {
+// Register service worker for offline PWA support (production only — dev server has no sw.js)
+if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(e => {
+    navigator.serviceWorker.register('/axis-and-allies-1942/sw.js').catch(e => {
       console.warn('[SW] Registration failed:', e);
     });
   });

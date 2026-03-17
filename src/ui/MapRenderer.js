@@ -6,55 +6,57 @@ window.__TERRITORIES = TERRITORIES;
 
 // ── NATION COLORS — vintage board-game map palette ──────────────────────────
 // Colors tuned to match the App Store reference screenshots:
-// lighter, more desaturated tones — aged paper/cartographic style
+// Studied from reference IMG_0442–0448 showing all regions of the board
 const NATION_FILL = {
-  ussr:      '#b88860',  // warm terracotta-brown (matches reference: clay/earthy tone)
-  germany:   '#6888a0',  // medium steel blue-gray
-  uk:        '#7a8830',  // dark olive-green (distinct from USA)
-  japan:     '#c89848',  // warm amber-tan
-  usa:       '#90a840',  // brighter yellow-green (distinct from UK)
-  australia: '#4e7838',  // medium forest green
-  neutral:   '#c0b890',  // warm parchment / light beige
+  ussr:      '#c07050',  // warm rust-terracotta (reference: saturated brick-red brown)
+  germany:   '#5c7e98',  // steel blue-gray (reference: muted teal-blue)
+  uk:        '#7e9028',  // warm olive-yellow-green (reference: more yellow than forest)
+  japan:     '#d49838',  // vibrant amber-orange (reference: saturated sandy-orange)
+  usa:       '#8aaa2e',  // brighter yellow-green (distinct from UK olive)
+  australia: '#4a7830',  // medium forest green (Australia/India/Pacific Islands)
+  neutral:   '#cec2a0',  // warm parchment / sandy khaki (Africa, Middle East neutrals)
 };
 const NATION_BORDER = {
-  ussr:      '#8a6040',  // dark terracotta
-  germany:   '#3a6078',  // dark steel blue
-  uk:        '#485018',  // very dark olive
-  japan:     '#906820',  // dark amber
-  usa:       '#587020',  // dark yellow-green
-  australia: '#285818',  // dark forest green
-  neutral:   '#908860',  // warm gray-brown
+  ussr:      '#884030',  // dark rust-terracotta
+  germany:   '#304e66',  // dark steel blue
+  uk:        '#485210',  // dark olive
+  japan:     '#946010',  // dark burnt orange
+  usa:       '#4a6018',  // dark yellow-green
+  australia: '#204a10',  // dark forest green
+  neutral:   '#7a6030',  // warm tan-brown
 };
 
 const OCEAN_COLOR = '#507080';  // medium-deep steel blue (vintage map ocean)
 const VB_W = 1400, VB_H = 780;
 
-// Unit symbols — short codes + Unicode for air units
+// Unit symbols — single/two-char codes for compact token display
+// Matches the abbreviated style visible in the App Store reference screenshots
 const UNIT_CODE = {
   infantry:        'I',
-  artillery:       'ART',
-  armor:           'ARM',
+  artillery:       'A',
+  armor:           'T',   // Tank
   antiair:         'AA',
-  fighter:         '✈',
-  bomber:          '✈B',
-  tactical_bomber: '✈T',
-  submarine:       'SUB',
-  destroyer:       'DD',
-  cruiser:         'CA',
+  fighter:         'F',
+  bomber:          'B',
+  tactical_bomber: 'TB',
+  submarine:       'S',
+  destroyer:       'D',
+  cruiser:         'C',
   carrier:         'CV',
   battleship:      'BB',
-  transport:       'TRN',
+  transport:       'TP',
 };
 
-// Darker token background color per nation (tinted faction — stays dark for contrast)
+// Token background: slightly darkened version of nation fill color
+// Reference app uses nation colors for token backgrounds
 const NATION_TOKEN_BG = {
-  ussr:      '#5a3018',  // dark terracotta
-  germany:   '#203050',  // dark navy-blue
-  uk:        '#383c10',  // very dark olive
-  japan:     '#604010',  // dark amber-brown
-  usa:       '#304810',  // dark yellow-green
-  australia: '#183818',  // dark forest green
-  neutral:   '#484030',  // dark warm tan
+  ussr:      '#a85c44',  // warm rust-terracotta
+  germany:   '#4a6a8a',  // steel blue
+  uk:        '#687820',  // dark olive
+  japan:     '#b47e28',  // amber
+  usa:       '#6a8a24',  // yellow-green
+  australia: '#3c6828',  // forest green
+  neutral:   '#9a8c6c',  // parchment
 };
 
 // ── VORONOI GEOMETRY ─────────────────────────────────────────────────────────
@@ -200,6 +202,9 @@ export class MapRenderer {
     // Territory polygon layer
     this._terrGroup = this._makeGroup(svg, 'territories');
 
+    // Inner shadow group (depth effect over territory fills, below labels)
+    this._innerGroup = this._makeGroup(svg, 'inner-shadows');
+
     // Sea zone number labels
     this._seaGroup = this._makeGroup(svg, 'sea-labels');
 
@@ -244,11 +249,20 @@ export class MapRenderer {
       </radialGradient>
       <!-- Subtle paper grain for territories — vintage map feel -->
       <filter id="paper" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
-        <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4"
+        <feTurbulence type="fractalNoise" baseFrequency="0.68" numOctaves="4"
           stitchTiles="stitch" result="noise"/>
         <feColorMatrix type="saturate" values="0" in="noise" result="gray"/>
         <feBlend in="SourceGraphic" in2="gray" mode="multiply" result="blend"/>
         <feComposite in="blend" in2="SourceGraphic" operator="in"/>
+      </filter>
+      <!-- Stronger paper texture for territory borders (edge darkening) -->
+      <filter id="paper-edge" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3"
+          stitchTiles="stitch" result="noise"/>
+        <feColorMatrix type="saturate" values="0" in="noise" result="gray"/>
+        <feBlend in="SourceGraphic" in2="gray" mode="multiply" result="blend"/>
+        <feComposite in="blend" in2="SourceGraphic" operator="in"/>
+        <feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="rgba(0,0,0,0.22)" flood-opacity="1"/>
       </filter>
       <!-- Arrowhead marker for movement arrows -->
       <marker id="arrow-head" markerWidth="6" markerHeight="6" refX="5" refY="3"
@@ -264,6 +278,11 @@ export class MapRenderer {
       <filter id="sel-glow" x="-30%" y="-30%" width="160%" height="160%">
         <feGaussianBlur stdDeviation="3" result="blur"/>
         <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <!-- Token drop shadow filter -->
+      <filter id="token-sh" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="1" dy="1.5" stdDeviation="1.5"
+          flood-color="rgba(0,0,0,0.55)" flood-opacity="1"/>
       </filter>
     `;
     svg.appendChild(defs);
@@ -333,6 +352,7 @@ export class MapRenderer {
     this._coastGroup.innerHTML = '';
     this._terrGroup.innerHTML = '';
     this._terrPaths = {};
+    if (this._innerGroup) this._innerGroup.innerHTML = '';
     const own = this.state.ownership || {};
 
     Object.values(TERRITORIES).forEach(t => {
@@ -344,26 +364,37 @@ export class MapRenderer {
       const coast = this._svgEl('path');
       coast.setAttribute('d', d);
       coast.setAttribute('fill', 'none');
-      coast.setAttribute('stroke', 'rgba(15,20,15,0.45)');
-      coast.setAttribute('stroke-width', '3');
+      coast.setAttribute('stroke', 'rgba(5,10,5,0.65)');
+      coast.setAttribute('stroke-width', '4.0');
       coast.setAttribute('stroke-linejoin', 'round');
       coast.setAttribute('pointer-events', 'none');
       this._coastGroup.appendChild(coast);
 
-      const owner = own[t.id] || 'neutral';
-      const fill  = NATION_FILL[owner]   || NATION_FILL.neutral;
+      const owner  = own[t.id] || 'neutral';
+      const fill   = NATION_FILL[owner]   || NATION_FILL.neutral;
       const stroke = NATION_BORDER[owner] || NATION_BORDER.neutral;
 
       const path = this._svgEl('path');
       path.setAttribute('d', d);
       path.setAttribute('fill', fill);
       path.setAttribute('stroke', stroke);
-      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('stroke-width', '1.2');
       path.setAttribute('stroke-linejoin', 'round');
       path.setAttribute('filter', 'url(#paper)');
       path.setAttribute('data-id', t.id);
       this._terrGroup.appendChild(path);
       this._terrPaths[t.id] = path;
+
+      // Inner shadow: stroke inside territory edge for depth / vintage paper feel
+      // SVG strokes are centered, so half goes inside the fill
+      const inner = this._svgEl('path');
+      inner.setAttribute('d', d);
+      inner.setAttribute('fill', 'none');
+      inner.setAttribute('stroke', 'rgba(0,0,0,0.18)');
+      inner.setAttribute('stroke-width', '5');
+      inner.setAttribute('stroke-linejoin', 'round');
+      inner.setAttribute('pointer-events', 'none');
+      this._innerGroup.appendChild(inner);
     });
   }
 
@@ -373,10 +404,16 @@ export class MapRenderer {
       if (t.type === 'sea') return;
       const path = this._terrPaths[t.id];
       if (!path) return;
-      const owner = own[t.id] || 'neutral';
+      const owner  = own[t.id] || 'neutral';
       path.setAttribute('fill',   NATION_FILL[owner]   || NATION_FILL.neutral);
       path.setAttribute('stroke', NATION_BORDER[owner] || NATION_BORDER.neutral);
     });
+  }
+
+  /** Rebuild inner-shadow group (called when territory list changes, usually only at start) */
+  _rebuildInnerShadows() {
+    if (!this._innerGroup) return;
+    // Inner shadows are already populated by _drawTerritories(); nothing extra needed
   }
 
   // ── SEA ZONE LABELS ─────────────────────────────────────────────────────────
@@ -389,10 +426,10 @@ export class MapRenderer {
       txt.setAttribute('x', t.x); txt.setAttribute('y', t.y);
       txt.setAttribute('text-anchor', 'middle');
       txt.setAttribute('dominant-baseline', 'middle');
-      txt.setAttribute('font-size', '11');
-      txt.setAttribute('fill', 'rgba(20,50,75,0.65)');
+      txt.setAttribute('font-size', '13');
+      txt.setAttribute('fill', 'rgba(210,230,248,0.55)');
       txt.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
-      txt.setAttribute('font-weight', 'bold');
+      txt.setAttribute('font-weight', '900');
       txt.setAttribute('letter-spacing', '0.5');
       txt.setAttribute('pointer-events', 'none');
       txt.textContent = num;
@@ -452,48 +489,69 @@ export class MapRenderer {
         g.appendChild(vc);
       }
 
-      // Factory icon — small, right of center (visibility updated dynamically)
+      // Industrial Complex icon — factory chimney symbol, positioned to not overlap label
       {
-        const ic = this._svgEl('text');
-        ic.setAttribute('x', lx + (isLarge ? 12 : 9));
-        ic.setAttribute('y', ly - r * 0.45);
-        ic.setAttribute('font-size', isLarge ? '9' : '7.5');
-        ic.setAttribute('opacity', '0.85');
-        ic.setAttribute('pointer-events', 'none');
-        ic.textContent = '⚙';
-        ic.style.display = this.state.industrialComplexes?.[t.id] ? '' : 'none';
-        g.appendChild(ic);
-        this._icElems[t.id] = ic;
+        // IC container group so we can toggle visibility cleanly
+        const icg = this._svgEl('g');
+        icg.setAttribute('pointer-events', 'none');
+        icg.style.display = this.state.industrialComplexes?.[t.id] ? '' : 'none';
+
+        // Position: upper-right of territory label area
+        const icx = lx + (isLarge ? 13 : 10);
+        const icy = ly - r * 0.42;
+        const ics = isLarge ? 1.15 : 0.90; // scale factor
+
+        // Dark circular background badge for IC icon
+        const icBg = this._svgEl('circle');
+        icBg.setAttribute('cx', icx); icBg.setAttribute('cy', icy);
+        icBg.setAttribute('r', String(7 * ics));
+        icBg.setAttribute('fill', 'rgba(10,6,0,0.72)');
+        icBg.setAttribute('stroke', '#c89020'); icBg.setAttribute('stroke-width', '0.9');
+        icg.appendChild(icBg);
+
+        // Factory text symbol — ⚒ (crossed tools) or ⚙ (gear)
+        const icTxt = this._svgEl('text');
+        icTxt.setAttribute('x', icx); icTxt.setAttribute('y', icy + 0.8);
+        icTxt.setAttribute('text-anchor', 'middle');
+        icTxt.setAttribute('dominant-baseline', 'middle');
+        icTxt.setAttribute('font-size', String(8 * ics));
+        icTxt.setAttribute('fill', '#f0c030');
+        icTxt.textContent = '⚒';
+        icg.appendChild(icTxt);
+
+        g.appendChild(icg);
+        this._icElems[t.id] = icg;
       }
 
-      // Territory name — small, semi-transparent, uppercase
-      const maxChars = isLarge ? 18 : 13;
-      const shortName = t.name.length > maxChars ? t.name.slice(0, maxChars - 1) + '…' : t.name;
+      // Territory name — uppercase, visible text with text shadow
+      const maxChars = isLarge ? 18 : 12;
+      const rawName = t.name.toUpperCase();
+      const shortName = rawName.length > maxChars ? rawName.slice(0, maxChars - 1) + '…' : rawName;
       const nm = this._svgEl('text');
       nm.setAttribute('x', lx);
-      nm.setAttribute('y', capitalIds.has(t.id) ? ly + 2 : ly - (t.ipc > 0 ? 3 : 0));
+      nm.setAttribute('y', capitalIds.has(t.id) ? ly + 2 : ly - (t.ipc > 0 ? 2 : 0));
       nm.setAttribute('text-anchor', 'middle');
       nm.setAttribute('dominant-baseline', 'middle');
-      nm.setAttribute('font-size', isLarge ? '7.5' : '6');
-      nm.setAttribute('fill', 'rgba(255,248,220,0.72)');
+      nm.setAttribute('font-size', isLarge ? '7.5' : '6.2');
+      nm.setAttribute('fill', 'rgba(255,252,230,0.75)');
       nm.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
       nm.setAttribute('font-weight', 'bold');
-      nm.setAttribute('letter-spacing', '0.3');
+      nm.setAttribute('letter-spacing', '0.8');
       nm.setAttribute('filter', 'url(#txt-sh)');
       nm.textContent = shortName;
       g.appendChild(nm);
 
       // IPC value — circled badge, gold on dark background
       if (t.ipc > 0) {
-        const badgeY = capitalIds.has(t.id) ? ly + r * 0.42 : ly + r * 0.38;
-        const badgeR = isLarge ? 7 : 5.5;
+        const badgeY = capitalIds.has(t.id) ? ly + r * 0.45 : ly + r * 0.40;
+        const badgeR = isLarge ? 7.5 : 6;
         // Dark circle behind the number
         const circle = this._svgEl('circle');
         circle.setAttribute('cx', lx); circle.setAttribute('cy', badgeY);
         circle.setAttribute('r', badgeR);
-        circle.setAttribute('fill', 'rgba(10,8,2,0.65)');
-        circle.setAttribute('stroke', '#c8a030');
-        circle.setAttribute('stroke-width', '0.9');
+        circle.setAttribute('fill', 'rgba(8,6,0,0.70)');
+        circle.setAttribute('stroke', '#d4a820');
+        circle.setAttribute('stroke-width', '1.1');
         circle.setAttribute('pointer-events', 'none');
         g.appendChild(circle);
 
@@ -502,8 +560,8 @@ export class MapRenderer {
         ipc.setAttribute('y', badgeY + 0.5);
         ipc.setAttribute('text-anchor', 'middle');
         ipc.setAttribute('dominant-baseline', 'middle');
-        ipc.setAttribute('font-size', isLarge ? '9' : '7');
-        ipc.setAttribute('fill', '#f0cc38');
+        ipc.setAttribute('font-size', isLarge ? '9.5' : '7.5');
+        ipc.setAttribute('fill', '#f4d440');
         ipc.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
         ipc.setAttribute('font-weight', 'bold');
         ipc.setAttribute('class', 'ipc-val');
@@ -541,6 +599,19 @@ export class MapRenderer {
       el.setAttribute('class', 'hit-target');
       el.addEventListener('click',    e => { e.stopPropagation(); this.app.onTerritoryClick(t.id); });
       el.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); this.app.onTerritoryClick(t.id); });
+
+      // Hover: brighten the territory fill (JavaScript-based since groups are separate)
+      if (t.type !== 'sea') {
+        el.addEventListener('mouseenter', () => {
+          const path = this._terrPaths[t.id];
+          if (path) path.style.filter = 'brightness(1.18) url(#paper)';
+        });
+        el.addEventListener('mouseleave', () => {
+          const path = this._terrPaths[t.id];
+          if (path) path.style.filter = 'url(#paper)';
+        });
+      }
+
       this._hitGroup.appendChild(el);
     });
   }
@@ -551,77 +622,125 @@ export class MapRenderer {
     if (!this._unitGroup) return;
     this._unitGroup.innerHTML = '';
 
+    const AIR_UNIT_TYPES = new Set(['fighter','bomber','tactical_bomber']);
+    const NAV_UNIT_TYPES = new Set(['submarine','destroyer','cruiser','carrier','battleship','transport']);
+
     Object.values(TERRITORIES).forEach(t => {
       const units = this.state.getUnits(t.id);
       if (units.length === 0) return;
 
+      // Group by nation, then by unit type within nation
       const byNation = {};
       units.forEach(u => {
         if (!byNation[u.nation]) byNation[u.nation] = {};
         byNation[u.nation][u.type] = (byNation[u.nation][u.type] || 0) + 1;
       });
 
+      // Build display slots: one per unique (nation, unitType) combo
+      // Sort: land first, then air, then naval
       const slots = [];
       Object.entries(byNation).forEach(([nat, types]) => {
-        Object.entries(types).forEach(([type, count]) => slots.push({ nat, type, count }));
+        const ordered = Object.entries(types).sort(([a], [b]) => {
+          const pri = k => AIR_UNIT_TYPES.has(k) ? 1 : NAV_UNIT_TYPES.has(k) ? 2 : 0;
+          return pri(a) - pri(b);
+        });
+        ordered.forEach(([type, count]) => slots.push({ nat, type, count }));
       });
 
-      const MAX_VIS = 4;
+      const MAX_VIS = 5;
       const visible = slots.slice(0, MAX_VIS);
-      const TW = 22;
-      const [cx, cy] = this._getTerrCenter(t);
-      const startX = cx - (visible.length * TW) / 2 + TW / 2;
-      const baseY  = t.type === 'sea' ? cy : cy - (t.ipc === 0 ? 10 : Math.max(22, Math.min(50, 14 + t.ipc * 3.5)) * 0.38);
 
-      const AIR_UNIT_TYPES = new Set(['fighter','bomber','tactical_bomber']);
-      const NAV_UNIT_TYPES = new Set(['submarine','destroyer','cruiser','carrier','battleship','transport']);
+      // Compact token sizing — matches reference screenshot aesthetic
+      const TR = 7;    // token radius (smaller = cleaner, matches reference ~14px diameter)
+      const TW = 16;   // horizontal spacing between token centers (tighter)
+      const [cx, cy] = this._getTerrCenter(t);
+
+      // Y position: push tokens slightly upward from territory center so IPC badge shows below
+      const terrR = t.ipc === 0 ? 10 : Math.max(18, Math.min(48, 12 + t.ipc * 3.2));
+      const baseY = t.type === 'sea' ? cy : cy - terrR * 0.28;
+
+      const startX = cx - ((visible.length - 1) * TW) / 2;
 
       visible.forEach(({ nat, type, count }, i) => {
-        const tx    = startX + i * TW;
-        const ring  = NATION_BORDER[nat] || '#888';
-        const bg    = NATION_TOKEN_BG[nat] || '#1a1a1a';
-        const code  = UNIT_CODE[type] || type.slice(0, 3).toUpperCase();
+        const tx   = startX + i * TW;
+        const bg   = NATION_TOKEN_BG[nat] || '#555';
+        const ring = NATION_BORDER[nat]   || '#888';
+        const code = UNIT_CODE[type]      || type.slice(0, 2).toUpperCase();
+        const isAir = AIR_UNIT_TYPES.has(type);
+        const isNav = NAV_UNIT_TYPES.has(type);
 
-        // Air units get a slightly lighter ring; naval get a blue tint ring
-        const ringColor = AIR_UNIT_TYPES.has(type)
-          ? '#d8d030'
-          : NAV_UNIT_TYPES.has(type) ? '#4090c0' : ring;
-        const ringWidth = AIR_UNIT_TYPES.has(type) ? 2.2 : 1.8;
+        // Ring color: gold for air, blue-teal for naval, nation border for land
+        const ringColor = isAir ? '#d8c038' : isNav ? '#2888c8' : ring;
+        const ringW     = isAir ? 2.0 : isNav ? 1.8 : 1.6;
+        // Top highlight for subtle 3D depth
+        const hlColor   = isAir ? 'rgba(255,248,160,0.35)' : isNav ? 'rgba(80,160,255,0.28)' : 'rgba(255,255,255,0.20)';
 
-        // Faction-colored token
-        this._circle(this._unitGroup, tx, baseY, 9, bg, ringColor, ringWidth);
+        // Drop shadow
+        const shadow = this._svgEl('circle');
+        shadow.setAttribute('cx', tx + 0.8); shadow.setAttribute('cy', baseY + 1.2);
+        shadow.setAttribute('r', TR + 0.5);
+        shadow.setAttribute('fill', 'rgba(0,0,0,0.50)');
+        shadow.setAttribute('pointer-events', 'none');
+        this._unitGroup.appendChild(shadow);
 
+        // Main token circle (nation color)
+        this._circle(this._unitGroup, tx, baseY, TR, bg, ringColor, ringW);
+
+        // Top-half highlight for 3D sphere effect
+        const hl = this._svgEl('ellipse');
+        hl.setAttribute('cx', tx); hl.setAttribute('cy', baseY - TR * 0.28);
+        hl.setAttribute('rx', TR * 0.60); hl.setAttribute('ry', TR * 0.30);
+        hl.setAttribute('fill', hlColor);
+        hl.setAttribute('pointer-events', 'none');
+        this._unitGroup.appendChild(hl);
+
+        // Unit code text — clean, readable inside the token
+        const isLong = code.length > 2;
         const ct = this._svgEl('text');
-        ct.setAttribute('x', tx); ct.setAttribute('y', baseY + 0.5);
+        ct.setAttribute('x', tx); ct.setAttribute('y', baseY + 0.6);
         ct.setAttribute('text-anchor', 'middle'); ct.setAttribute('dominant-baseline', 'middle');
-        ct.setAttribute('font-size', code.length > 2 ? '4.5' : '5.5');
-        ct.setAttribute('fill', '#f0e8d0'); ct.setAttribute('font-weight', 'bold');
+        ct.setAttribute('font-size', isLong ? '4.0' : code.length === 1 ? '6.0' : '5.0');
+        ct.setAttribute('fill', '#ffffff'); ct.setAttribute('font-weight', '900');
         ct.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
+        ct.setAttribute('letter-spacing', isLong ? '-0.3' : '0');
         ct.setAttribute('pointer-events', 'none');
         ct.textContent = code;
         this._unitGroup.appendChild(ct);
 
-        if (count > 1) {
-          const bx = tx + 5.5, by = baseY - 5.5;
-          this._circle(this._unitGroup, bx, by, 4.2, ring, '#000', 0.5);
-          const bt = this._svgEl('text');
-          bt.setAttribute('x', bx); bt.setAttribute('y', by + 0.5);
-          bt.setAttribute('text-anchor', 'middle'); bt.setAttribute('dominant-baseline', 'middle');
-          bt.setAttribute('font-size', '4.2'); bt.setAttribute('fill', '#fff');
-          bt.setAttribute('font-weight', 'bold'); bt.setAttribute('pointer-events', 'none');
-          bt.textContent = count > 9 ? '9+' : count;
-          this._unitGroup.appendChild(bt);
-        }
+        // Count badge — bottom-right of token (always shown, orange for quantity)
+        const badgeR = count > 1 ? 3.8 : 3.2;
+        const bx = tx + TR * 0.65, by = baseY + TR * 0.65;
+        const badge = this._svgEl('circle');
+        badge.setAttribute('cx', bx); badge.setAttribute('cy', by);
+        badge.setAttribute('r', badgeR);
+        badge.setAttribute('fill', count > 1 ? '#c88010' : '#2a3820');
+        badge.setAttribute('stroke', 'rgba(0,0,0,0.75)'); badge.setAttribute('stroke-width', '0.6');
+        badge.setAttribute('pointer-events', 'none');
+        this._unitGroup.appendChild(badge);
+        const bt = this._svgEl('text');
+        bt.setAttribute('x', bx); bt.setAttribute('y', by + 0.5);
+        bt.setAttribute('text-anchor', 'middle'); bt.setAttribute('dominant-baseline', 'middle');
+        bt.setAttribute('font-size', count > 1 ? '4.5' : '3.8'); bt.setAttribute('fill', count > 1 ? '#fff' : '#aac080');
+        bt.setAttribute('font-weight', '900'); bt.setAttribute('pointer-events', 'none');
+        bt.textContent = count > 9 ? '9+' : String(count);
+        this._unitGroup.appendChild(bt);
       });
 
+      // Overflow indicator — "+N more" compact token
       if (slots.length > MAX_VIS) {
         const bx = startX + MAX_VIS * TW;
-        this._circle(this._unitGroup, bx, baseY, 8.5, '#303028', '#807858', 1.5);
+        const shadow = this._svgEl('circle');
+        shadow.setAttribute('cx', bx + 0.8); shadow.setAttribute('cy', baseY + 1.2);
+        shadow.setAttribute('r', TR + 0.5);
+        shadow.setAttribute('fill', 'rgba(0,0,0,0.35)');
+        shadow.setAttribute('pointer-events', 'none');
+        this._unitGroup.appendChild(shadow);
+        this._circle(this._unitGroup, bx, baseY, TR, '#2a2820', '#686858', 1.5);
         const et = this._svgEl('text');
-        et.setAttribute('x', bx); et.setAttribute('y', baseY + 0.5);
+        et.setAttribute('x', bx); et.setAttribute('y', baseY + 0.6);
         et.setAttribute('text-anchor', 'middle'); et.setAttribute('dominant-baseline', 'middle');
-        et.setAttribute('font-size', '5'); et.setAttribute('fill', '#c8c0a0');
-        et.setAttribute('pointer-events', 'none');
+        et.setAttribute('font-size', '4.5'); et.setAttribute('fill', '#c0b888');
+        et.setAttribute('font-weight', 'bold'); et.setAttribute('pointer-events', 'none');
         et.textContent = `+${slots.length - MAX_VIS}`;
         this._unitGroup.appendChild(et);
       }
@@ -823,6 +942,11 @@ export class MapRenderer {
     });
   }
 
+  /** Draw a subtle inner vignette on territory paths for depth/vintage feel */
+  _drawTerritoryDepth() {
+    // This is handled via the paper filter and the coast shadow — no additional SVG needed
+  }
+
   _update() {
     if (!this.svg) return;
     this._updateTerritoryColors();
@@ -954,15 +1078,15 @@ const MAP_CSS = `
     pointer-events: none; z-index: 10;
     background:
       /* top edge — dark */
-      linear-gradient(to bottom, rgba(0,3,12,0.70) 0%, transparent 14%),
-      /* bottom fog — vintage map cloud/fog bank */
-      linear-gradient(to top, rgba(210,200,175,0.88) 0%, rgba(160,150,120,0.45) 6%, transparent 16%),
+      linear-gradient(to bottom, rgba(0,3,12,0.65) 0%, transparent 10%),
+      /* bottom fog — subtle vintage map edge */
+      linear-gradient(to top, rgba(180,168,140,0.55) 0%, rgba(120,110,85,0.22) 5%, transparent 12%),
       /* bottom dark under fog */
-      linear-gradient(to top, rgba(0,3,12,0.55) 0%, transparent 8%),
+      linear-gradient(to top, rgba(0,3,12,0.45) 0%, transparent 6%),
       /* left edge */
-      linear-gradient(to right, rgba(0,3,12,0.60) 0%, transparent 11%),
+      linear-gradient(to right, rgba(0,3,12,0.55) 0%, transparent 9%),
       /* right edge */
-      linear-gradient(to left, rgba(0,3,12,0.60) 0%, transparent 11%);
+      linear-gradient(to left, rgba(0,3,12,0.55) 0%, transparent 9%);
   }
   .map-svg {
     width: 100%; height: 100%;
@@ -970,9 +1094,7 @@ const MAP_CSS = `
     will-change: transform;
   }
   .hit-target { cursor: pointer; }
-  /* Territory hover: brighten fill slightly */
-  .hit-target:hover + * { filter: brightness(1.15); }
-  #territories path:hover { filter: brightness(1.15) url(#paper); }
+  /* Territory hover — handled via JavaScript mouseenter/mouseleave for cross-group targeting */
 
   /* Selection pulse animation — applied to the selected overlay path */
   @keyframes sel-pulse {
