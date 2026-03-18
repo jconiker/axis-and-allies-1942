@@ -364,8 +364,8 @@ export class MapRenderer {
       const coast = this._svgEl('path');
       coast.setAttribute('d', d);
       coast.setAttribute('fill', 'none');
-      coast.setAttribute('stroke', 'rgba(5,10,5,0.65)');
-      coast.setAttribute('stroke-width', '4.0');
+      coast.setAttribute('stroke', 'rgba(5,10,5,0.55)');
+      coast.setAttribute('stroke-width', '2.5');
       coast.setAttribute('stroke-linejoin', 'round');
       coast.setAttribute('pointer-events', 'none');
       this._coastGroup.appendChild(coast);
