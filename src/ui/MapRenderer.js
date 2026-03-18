@@ -378,7 +378,7 @@ export class MapRenderer {
       path.setAttribute('d', d);
       path.setAttribute('fill', fill);
       path.setAttribute('stroke', stroke);
-      path.setAttribute('stroke-width', '1.2');
+      path.setAttribute('stroke-width', '2.2');
       path.setAttribute('stroke-linejoin', 'round');
       path.setAttribute('filter', 'url(#paper)');
       path.setAttribute('data-id', t.id);
