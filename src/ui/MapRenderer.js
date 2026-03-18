@@ -8,21 +8,21 @@ window.__TERRITORIES = TERRITORIES;
 // Colors tuned to match the App Store reference screenshots:
 // Studied from reference IMG_0442–0448 showing all regions of the board
 const NATION_FILL = {
-  ussr:      '#c07050',  // warm rust-terracotta (reference: saturated brick-red brown)
-  germany:   '#5c7e98',  // steel blue-gray (reference: muted teal-blue)
-  uk:        '#7e9028',  // warm olive-yellow-green (reference: more yellow than forest)
-  japan:     '#d49838',  // vibrant amber-orange (reference: saturated sandy-orange)
-  usa:       '#8aaa2e',  // brighter yellow-green (distinct from UK olive)
-  australia: '#4a7830',  // medium forest green (Australia/India/Pacific Islands)
+  ussr:      '#b07858',  // warm brownish-rust (reference: dusty terracotta-brown)
+  germany:   '#5a7a96',  // muted navy steel-blue (reference: darker teal-blue-gray)
+  uk:        '#c0a44c',  // warm golden tan/khaki (reference: sandy golden - Africa + India)
+  japan:     '#c8903a',  // warm amber-orange (reference: muted sandy-orange)
+  usa:       '#7a9a38',  // muted olive-green (reference: China/Americas olive)
+  australia: '#b89c48',  // sandy golden-tan (reference: similar to UK - Pacific territories)
   neutral:   '#cec2a0',  // warm parchment / sandy khaki (Africa, Middle East neutrals)
 };
 const NATION_BORDER = {
-  ussr:      '#884030',  // dark rust-terracotta
-  germany:   '#304e66',  // dark steel blue
-  uk:        '#485210',  // dark olive
-  japan:     '#946010',  // dark burnt orange
-  usa:       '#4a6018',  // dark yellow-green
-  australia: '#204a10',  // dark forest green
+  ussr:      '#885040',  // dark brownish-rust
+  germany:   '#3c5e76',  // dark steel blue
+  uk:        '#7a6828',  // dark golden tan
+  japan:     '#8a5a18',  // dark burnt orange
+  usa:       '#4a6820',  // dark olive-green
+  australia: '#7a6428',  // dark sandy-tan
   neutral:   '#7a6030',  // warm tan-brown
 };
 
@@ -50,12 +50,12 @@ const UNIT_CODE = {
 // Token background: slightly darkened version of nation fill color
 // Reference app uses nation colors for token backgrounds
 const NATION_TOKEN_BG = {
-  ussr:      '#a85c44',  // warm rust-terracotta
-  germany:   '#4a6a8a',  // steel blue
-  uk:        '#687820',  // dark olive
-  japan:     '#b47e28',  // amber
-  usa:       '#6a8a24',  // yellow-green
-  australia: '#3c6828',  // forest green
+  ussr:      '#9a6048',  // dark brownish-rust
+  germany:   '#506e88',  // dark steel blue
+  uk:        '#9a8030',  // dark golden tan
+  japan:     '#a07028',  // dark amber
+  usa:       '#5a7a28',  // dark olive-green
+  australia: '#9a7c30',  // dark sandy-tan
   neutral:   '#9a8c6c',  // parchment
 };
 
@@ -364,8 +364,8 @@ export class MapRenderer {
       const coast = this._svgEl('path');
       coast.setAttribute('d', d);
       coast.setAttribute('fill', 'none');
-      coast.setAttribute('stroke', 'rgba(5,10,5,0.55)');
-      coast.setAttribute('stroke-width', '2.5');
+      coast.setAttribute('stroke', 'rgba(5,10,5,0.50)');
+      coast.setAttribute('stroke-width', '2.2');
       coast.setAttribute('stroke-linejoin', 'round');
       coast.setAttribute('pointer-events', 'none');
       this._coastGroup.appendChild(coast);
@@ -378,7 +378,7 @@ export class MapRenderer {
       path.setAttribute('d', d);
       path.setAttribute('fill', fill);
       path.setAttribute('stroke', stroke);
-      path.setAttribute('stroke-width', '2.2');
+      path.setAttribute('stroke-width', '1.6');
       path.setAttribute('stroke-linejoin', 'round');
       path.setAttribute('filter', 'url(#paper)');
       path.setAttribute('data-id', t.id);
@@ -539,8 +539,8 @@ export class MapRenderer {
         this._icElems[t.id] = icg;
       }
 
-      // Territory name — uppercase, visible text with text shadow
-      const maxChars = isLarge ? 18 : 12;
+      // Territory name — subtle uppercase text, very faint like reference board-game look
+      const maxChars = isLarge ? 20 : 14;
       const rawName = t.name.toUpperCase();
       const shortName = rawName.length > maxChars ? rawName.slice(0, maxChars - 1) + '…' : rawName;
       const nm = this._svgEl('text');
@@ -548,25 +548,25 @@ export class MapRenderer {
       nm.setAttribute('y', capitalIds.has(t.id) ? ly + 2 : ly - (t.ipc > 0 ? 2 : 0));
       nm.setAttribute('text-anchor', 'middle');
       nm.setAttribute('dominant-baseline', 'middle');
-      nm.setAttribute('font-size', isLarge ? '7.5' : '6.2');
-      nm.setAttribute('fill', 'rgba(255,252,230,0.75)');
+      nm.setAttribute('font-size', isLarge ? '7' : '5.8');
+      nm.setAttribute('fill', 'rgba(255,252,230,0.60)');
       nm.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
       nm.setAttribute('font-weight', 'bold');
-      nm.setAttribute('letter-spacing', '0.8');
+      nm.setAttribute('letter-spacing', '0.6');
       nm.setAttribute('filter', 'url(#txt-sh)');
       nm.textContent = shortName;
       g.appendChild(nm);
 
-      // IPC value — circled badge, gold on dark background
+      // IPC value — circled badge matching reference app style (light circle, dark number)
       if (t.ipc > 0) {
         const badgeY = capitalIds.has(t.id) ? ly + r * 0.45 : ly + r * 0.40;
         const badgeR = isLarge ? 7.5 : 6;
-        // Dark circle behind the number
+        // Light parchment circle with dark outline — matching reference board-game look
         const circle = this._svgEl('circle');
         circle.setAttribute('cx', lx); circle.setAttribute('cy', badgeY);
         circle.setAttribute('r', badgeR);
-        circle.setAttribute('fill', 'rgba(8,6,0,0.70)');
-        circle.setAttribute('stroke', '#d4a820');
+        circle.setAttribute('fill', 'rgba(225,215,185,0.78)');
+        circle.setAttribute('stroke', 'rgba(60,45,10,0.70)');
         circle.setAttribute('stroke-width', '1.1');
         circle.setAttribute('pointer-events', 'none');
         g.appendChild(circle);
@@ -576,8 +576,8 @@ export class MapRenderer {
         ipc.setAttribute('y', badgeY + 0.5);
         ipc.setAttribute('text-anchor', 'middle');
         ipc.setAttribute('dominant-baseline', 'middle');
-        ipc.setAttribute('font-size', isLarge ? '9.5' : '7.5');
-        ipc.setAttribute('fill', '#f4d440');
+        ipc.setAttribute('font-size', isLarge ? '9' : '7.5');
+        ipc.setAttribute('fill', 'rgba(25,15,0,0.90)');
         ipc.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
         ipc.setAttribute('font-weight', 'bold');
         ipc.setAttribute('class', 'ipc-val');
