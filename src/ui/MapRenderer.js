@@ -244,11 +244,11 @@ export class MapRenderer {
   _buildDefs(svg) {
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
     defs.innerHTML = `
-      <!-- Ocean: medium-deep steel blue, richer cartographic style -->
+      <!-- Ocean: muted vintage map blue-gray, aged cartographic style matching reference -->
       <radialGradient id="ocean-grad" cx="52%" cy="40%" r="78%">
-        <stop offset="0%"   stop-color="#7898ac"/>
-        <stop offset="50%"  stop-color="#608090"/>
-        <stop offset="100%" stop-color="#486878"/>
+        <stop offset="0%"   stop-color="#8298a8"/>
+        <stop offset="50%"  stop-color="#6a8494"/>
+        <stop offset="100%" stop-color="#506070"/>
       </radialGradient>
       <!-- Subtle paper grain for territories — vintage map feel -->
       <filter id="paper" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
