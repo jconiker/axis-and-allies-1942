@@ -1111,6 +1111,8 @@ const MAP_CSS = `
     width: 100%; height: 100%;
     display: block; transform-origin: top left;
     will-change: transform;
+    /* Subtle vintage/aged paper filter: slight desaturation + warm sepia tone */
+    filter: sepia(0.14) saturate(0.87) brightness(0.97);
   }
   .hit-target { cursor: pointer; }
   /* Territory hover — handled via JavaScript mouseenter/mouseleave for cross-group targeting */
