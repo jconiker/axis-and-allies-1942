@@ -12,8 +12,9 @@ const NATION_FILL = {
   germany:   '#5a7a96',  // muted navy steel-blue (reference: darker teal-blue-gray)
   uk:        '#c0a44c',  // warm golden tan/khaki (reference: sandy golden - Africa + India)
   japan:     '#c8903a',  // warm amber-orange (reference: muted sandy-orange)
-  usa:       '#7a9a38',  // muted olive-green (reference: China/Americas olive)
+  usa:       '#7a9a38',  // muted olive-green (reference: Americas olive)
   australia: '#b89c48',  // sandy golden-tan (reference: similar to UK - Pacific territories)
+  china:     '#6a9848',  // medium olive-green (reference: Allied China distinct green)
   neutral:   '#cec2a0',  // warm parchment / sandy khaki (Africa, Middle East neutrals)
 };
 const NATION_BORDER = {
@@ -23,6 +24,7 @@ const NATION_BORDER = {
   japan:     '#8a5a18',  // dark burnt orange
   usa:       '#4a6820',  // dark olive-green
   australia: '#7a6428',  // dark sandy-tan
+  china:     '#3a5820',  // dark olive-green border
   neutral:   '#7a6030',  // warm tan-brown
 };
 
@@ -56,6 +58,7 @@ const NATION_TOKEN_BG = {
   japan:     '#a07028',  // dark amber
   usa:       '#5a7a28',  // dark olive-green
   australia: '#9a7c30',  // dark sandy-tan
+  china:     '#4a7828',  // dark olive-green (China)
   neutral:   '#9a8c6c',  // parchment
 };
 

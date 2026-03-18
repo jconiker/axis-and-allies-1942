@@ -11,7 +11,7 @@ export const NATIONS = {
   },
   uk: {
     id: 'uk', name: 'United Kingdom', side: 'allies',
-    color: '#c8860a', capital: 'united_kingdom', turnOrder: 3, startingIPC: 31,
+    color: '#c8860a', capital: 'united_kingdom', turnOrder: 3, startingIPC: 29,
     flag: '🇬🇧', textColor: '#ffffff'
   },
   japan: {
@@ -28,6 +28,12 @@ export const NATIONS = {
     id: 'australia', name: 'Australia', side: 'allies',
     color: '#2a9a68', capital: 'australia', turnOrder: 6, startingIPC: 10,
     flag: '🇦🇺', textColor: '#ffffff'
+  },
+  // China — Allied faction controlled by USA, distinct green color matching reference
+  china: {
+    id: 'china', name: 'China', side: 'allies',
+    color: '#6a9040', capital: null, turnOrder: null, startingIPC: 0,
+    flag: '🇨🇳', textColor: '#ffffff'
   },
   // Neutral — not a player nation, but territories can be owned by 'neutral'
   neutral: {

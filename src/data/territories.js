@@ -247,12 +247,12 @@ export const TERRITORIES = {
     adjacent:['india','french_indochina','yunnan','sz_37']
   },
   yunnan: {
-    id:'yunnan', name:'Yunnan', ipc:1, startOwner:'uk', type:'land', region:'asia',
+    id:'yunnan', name:'Yunnan', ipc:1, startOwner:'china', type:'land', region:'asia',
     x:1080, y:355,
     adjacent:['burma','french_indochina','kwangtung','szechwan']
   },
   szechwan: {
-    id:'szechwan', name:'Szechwan', ipc:1, startOwner:'uk', type:'land', region:'asia',
+    id:'szechwan', name:'Szechwan', ipc:1, startOwner:'china', type:'land', region:'asia',
     x:1090, y:310,
     adjacent:['yunnan','kwangtung','kiangsu','manchuria','buryatia']
   },
