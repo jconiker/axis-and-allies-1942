@@ -9,7 +9,7 @@ window.__TERRITORIES = TERRITORIES;
 // Studied from reference IMG_0442–0448 showing all regions of the board
 const NATION_FILL = {
   ussr:      '#b07858',  // warm brownish-rust (reference: dusty terracotta-brown)
-  germany:   '#5a7a96',  // muted navy steel-blue (reference: darker teal-blue-gray)
+  germany:   '#486a84',  // darker muted teal-blue (reference: deeper navy-teal-gray)
   uk:        '#c0a44c',  // warm golden tan/khaki (reference: sandy golden - Africa + India)
   japan:     '#c8903a',  // warm amber-orange (reference: muted sandy-orange)
   usa:       '#7a9a38',  // muted olive-green (reference: Americas olive)
@@ -19,7 +19,7 @@ const NATION_FILL = {
 };
 const NATION_BORDER = {
   ussr:      '#885040',  // dark brownish-rust
-  germany:   '#3c5e76',  // dark steel blue
+  germany:   '#2e4e64',  // darker teal-blue border
   uk:        '#7a6828',  // dark golden tan
   japan:     '#8a5a18',  // dark burnt orange
   usa:       '#4a6820',  // dark olive-green
@@ -53,7 +53,7 @@ const UNIT_CODE = {
 // Reference app uses nation colors for token backgrounds
 const NATION_TOKEN_BG = {
   ussr:      '#9a6048',  // dark brownish-rust
-  germany:   '#506e88',  // dark steel blue
+  germany:   '#3a5a72',  // darker teal-blue token
   uk:        '#9a8030',  // dark golden tan
   japan:     '#a07028',  // dark amber
   usa:       '#5a7a28',  // dark olive-green
