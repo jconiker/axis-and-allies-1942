@@ -444,6 +444,22 @@ export class MapRenderer {
     const capitalIds = new Set(
       Object.values(NATIONS).filter(n => n.capital).map(n => n.capital)
     );
+    // Nation-specific capital emblems — each nation has a distinctive marker
+    // matching the reference app's national insignia style
+    const CAPITAL_EMBLEM = {
+      germany:        '✚',   // Iron Cross (Balkenkreuz approximation)
+      russia:         '★',   // Soviet Red Star
+      united_kingdom: '⊕',   // British target/cross
+      eastern_us:     '★',   // American star
+      japan:          '⊙',   // Rising Sun (concentric circle approximation)
+      australia:      '⊕',   // Commonwealth cross/target
+    };
+    // Build territoryId → emblem map via NATIONS capital lookup
+    const capitalEmblem = {};
+    Object.values(NATIONS).forEach(n => {
+      if (n.capital) capitalEmblem[n.capital] = CAPITAL_EMBLEM[n.id] || '★';
+    });
+
     // Non-capital Victory Cities — get a smaller gold diamond marker
     const ALL_VCS = new Set([
       'germany', 'western_europe', 'southern_europe', 'japan', 'manchuria',
@@ -464,7 +480,7 @@ export class MapRenderer {
       const r = t.ipc === 0 ? 16 : Math.max(20, Math.min(50, 12 + t.ipc * 3.2));
       const isLarge = r >= 36;
 
-      // Capital star — gold ★
+      // Capital emblem — nation-specific symbol (★ ⊙ ✚ ⊕)
       if (capitalIds.has(t.id)) {
         const star = this._svgEl('text');
         star.setAttribute('x', lx); star.setAttribute('y', ly - r * 0.5);
@@ -473,7 +489,7 @@ export class MapRenderer {
         star.setAttribute('font-size', isLarge ? '11' : '9');
         star.setAttribute('fill', '#e8c838');
         star.setAttribute('filter', 'url(#txt-sh)');
-        star.textContent = '★';
+        star.textContent = capitalEmblem[t.id] || '★';
         g.appendChild(star);
       }
       // Non-capital Victory City — small gold diamond ◆
