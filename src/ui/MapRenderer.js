@@ -208,6 +208,10 @@ export class MapRenderer {
     // Inner shadow group (depth effect over territory fills, below labels)
     this._innerGroup = this._makeGroup(svg, 'inner-shadows');
 
+    // Dark border overlay — drawn AFTER fills so all territory boundaries are visible
+    // (including borders between same-nation territories that share a fill color)
+    this._borderGroup = this._makeGroup(svg, 'borders');
+
     // Sea zone number labels
     this._seaGroup = this._makeGroup(svg, 'sea-labels');
 
@@ -231,6 +235,7 @@ export class MapRenderer {
 
     this._drawOceanGrid();
     this._drawTerritories();
+    this._drawBorderOverlay();
     this._drawSeaLabels();
     this._drawStaticLabels();
     this._drawVignette();
@@ -398,6 +403,27 @@ export class MapRenderer {
       inner.setAttribute('stroke-linejoin', 'round');
       inner.setAttribute('pointer-events', 'none');
       this._innerGroup.appendChild(inner);
+    });
+  }
+
+  /** Dark border overlay — re-draws all territory outlines ON TOP of fills.
+   *  This makes every territory boundary visible regardless of nation color,
+   *  including borders between adjacent same-nation territories. */
+  _drawBorderOverlay() {
+    if (!this._borderGroup) return;
+    this._borderGroup.innerHTML = '';
+    Object.values(TERRITORIES).forEach(t => {
+      if (t.type === 'sea') return;
+      const d = this._getTerrPath(t.id);
+      if (!d) return;
+      const b = this._svgEl('path');
+      b.setAttribute('d', d);
+      b.setAttribute('fill', 'none');
+      b.setAttribute('stroke', 'rgba(8,4,0,0.52)');
+      b.setAttribute('stroke-width', '1.4');
+      b.setAttribute('stroke-linejoin', 'round');
+      b.setAttribute('pointer-events', 'none');
+      this._borderGroup.appendChild(b);
     });
   }
 

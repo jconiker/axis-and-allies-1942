@@ -11,12 +11,12 @@ export const NATIONS = {
   },
   uk: {
     id: 'uk', name: 'United Kingdom', side: 'allies',
-    color: '#c8860a', capital: 'united_kingdom', turnOrder: 3, startingIPC: 29,
+    color: '#c8860a', capital: 'united_kingdom', turnOrder: 4, startingIPC: 29,
     flag: '🇬🇧', textColor: '#ffffff'
   },
   japan: {
     id: 'japan', name: 'Japan', side: 'axis',
-    color: '#e8c020', capital: 'japan', turnOrder: 4, startingIPC: 30,
+    color: '#e8c020', capital: 'japan', turnOrder: 3, startingIPC: 30,
     flag: '🇯🇵', textColor: '#000000'
   },
   usa: {
@@ -43,7 +43,7 @@ export const NATIONS = {
   }
 };
 
-export const TURN_ORDER = ['ussr', 'germany', 'uk', 'japan', 'usa', 'australia'];
+export const TURN_ORDER = ['ussr', 'germany', 'japan', 'uk', 'usa', 'australia'];
 export const ALLIES = ['ussr', 'uk', 'usa', 'australia'];
 export const AXIS = ['germany', 'japan'];
 

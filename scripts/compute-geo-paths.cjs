@@ -76,6 +76,30 @@ function computeCentroid(fc) {
   } catch { return [0, 0]; }
 }
 
+// ── Raw SVG hexagon for tiny island territories ───────────────────────────────
+function rawHex(cx, cy, r) {
+  // 6-point regular hexagon centered at (cx, cy) with given radius
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const a = (Math.PI / 3) * i - Math.PI / 6;
+    pts.push(`${(cx + r * Math.cos(a)).toFixed(1)},${(cy + r * Math.sin(a)).toFixed(1)}`);
+  }
+  return `M ${pts[0]} L ${pts.slice(1).join(' L ')} Z`;
+}
+
+// ── Hand-crafted polygon path (lon/lat coords → SVG) for game-board-style shapes
+// Used for territories where rectangular clip produces unrealistic straight borders.
+function polyPath(lonLatRing) {
+  const feature = {
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [lonLatRing] },
+    properties: {}
+  };
+  const d = pathGen(feature) || '';
+  const [cx, cy] = computeCentroid(feature);
+  return { path: d, cx: Math.round(cx), cy: Math.round(cy) };
+}
+
 // ── Territory definitions ─────────────────────────────────────────────────────
 const TERRITORY_DEFS = {
   // ── Americas ───────────────────────────────────────────────────────────────
@@ -126,11 +150,12 @@ const TERRITORY_DEFS = {
   russia:         { ids: ['643'], clip: [28, 50, 62, 64] },
   caucasus:       { ids: ['643','268','031','051','795','762','860'], clip: [38, 36, 72, 52] },
   kazakh:         { ids: ['398'], clip: [50, 40, 87, 56] },
-  novosibirsk:    { ids: ['643'], clip: [62, 50, 90, 68] },
-  evenki:         { ids: ['643'], clip: [86, 56, 120, 73] },
-  yakut:          { ids: ['643'], clip: [118, 56, 155, 75] },
-  buryatia:       { ids: ['643'], clip: [100, 47, 122, 60] },
-  soviet_far_east:{ ids: ['643'], clip: [130, 42, 165, 72] },
+  // Siberian territories — hand-crafted polygons so borders are diagonal, not rectangular
+  novosibirsk:    { poly: [[62,70],[72,72],[84,71],[90,66],[92,60],[88,55],[80,51],[68,50],[60,52],[59,61],[62,70]] },
+  evenki:         { poly: [[90,66],[96,72],[108,74],[120,72],[123,65],[122,58],[114,56],[100,56],[90,58],[88,62],[90,66]] },
+  buryatia:       { poly: [[90,58],[100,56],[114,56],[122,58],[126,54],[126,48],[118,47],[106,47],[96,49],[88,53],[88,56],[90,58]] },
+  yakut:          { poly: [[120,72],[130,75],[144,75],[154,72],[157,65],[155,58],[147,57],[135,56],[124,56],[122,62],[120,66],[120,72]] },
+  soviet_far_east:{ poly: [[124,56],[135,56],[147,57],[155,58],[160,54],[165,50],[163,42],[153,42],[140,42],[130,44],[127,50],[124,56]] },
 
   // ── Asia ─────────────────────────────────────────────────────────────────
   india:          { ids: ['356','050','144','524','064'] },
@@ -153,6 +178,15 @@ const TERRITORY_DEFS = {
   new_zealand:    { ids: ['554'] },
   new_guinea:     { ids: ['598'] },
   solomon_islands:{ ids: ['090'] },
+
+  // ── Pacific Islands — raw SVG hexagon shapes (no good TopoJSON coverage) ─────
+  hawaii:          { raw: { cx: 95,  cy: 355, r: 10 } },
+  midway:          { raw: { cx: 50,  cy: 290, r:  7 } },
+  wake_island:     { raw: { cx:1310, cy: 355, r:  6 } },
+  guam:            { raw: { cx:1270, cy: 415, r:  8 } },
+  iwo_jima:        { raw: { cx:1295, cy: 335, r:  6 } },
+  marianas:        { raw: { cx:1285, cy: 390, r:  8 } },
+  caroline_islands:{ raw: { cx:1235, cy: 465, r: 12 } },
 };
 
 // ── Compute paths + centroids ─────────────────────────────────────────────────
@@ -163,7 +197,18 @@ let computed = 0, missing = 0;
 Object.entries(TERRITORY_DEFS).forEach(([tid, def]) => {
   let pathStr, cx, cy;
 
-  if (def.clip) {
+  if (def.raw) {
+    // Raw SVG hexagon for tiny island territories
+    pathStr = rawHex(def.raw.cx, def.raw.cy, def.raw.r);
+    cx = def.raw.cx;
+    cy = def.raw.cy;
+  } else if (def.poly) {
+    // Hand-crafted polygon (lon/lat ring) — gives game-board-style diagonal borders
+    const r = polyPath(def.poly);
+    pathStr = r.path;
+    cx = r.cx;
+    cy = r.cy;
+  } else if (def.clip) {
     const r = pathMergedClipped(def.ids, ...def.clip);
     pathStr = r.path;
     cx = r.cx;

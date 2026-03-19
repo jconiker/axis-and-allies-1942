@@ -62,8 +62,8 @@ export class RulesPanel {
             <ol>
               <li><span class="nat-ussr">Soviet Union</span></li>
               <li><span class="nat-germany">Germany</span></li>
-              <li><span class="nat-uk">United Kingdom</span></li>
               <li><span class="nat-japan">Japan</span></li>
+              <li><span class="nat-uk">United Kingdom</span></li>
               <li><span class="nat-usa">United States</span></li>
             </ol>
             <p class="rule-note">Each nation completes all 6 phases before the next nation takes their turn.</p>
@@ -154,7 +154,7 @@ export class RulesPanel {
                 <tr class="air"><td>Fighter</td><td>FTR</td><td>3</td><td>4</td><td>4</td><td>10</td><td>Must land on carrier or friendly territory; can escort/intercept</td></tr>
                 <tr class="air"><td>Bomber</td><td>BMB</td><td>4</td><td>1</td><td>6</td><td>12</td><td>Can conduct strategic bombing runs on ICs (roll 1d6, deal that much damage)</td></tr>
                 <tr class="naval"><td>Submarine</td><td>SUB</td><td>2</td><td>1</td><td>2</td><td>6</td><td>First strike; can submerge to avoid combat; ignored by surface ships (unless destroyer present)</td></tr>
-                <tr class="naval"><td>Destroyer</td><td>DD</td><td>2</td><td>2</td><td>2</td><td>8</td><td>Negates submarine special abilities</td></tr>
+                <tr class="naval"><td>Destroyer</td><td>DD</td><td>3</td><td>3</td><td>2</td><td>8</td><td>Negates submarine special abilities. General-purpose warship.</td></tr>
                 <tr class="naval"><td>Cruiser</td><td>CA</td><td>3</td><td>3</td><td>2</td><td>12</td><td>Can bombard land territories during amphibious assault (ATK 3)</td></tr>
                 <tr class="naval"><td>Aircraft Carrier</td><td>CV</td><td>1</td><td>2</td><td>2</td><td>14</td><td>Carries up to 2 fighters; damaged carrier still carries fighters</td></tr>
                 <tr class="naval"><td>Battleship</td><td>BB</td><td>4</td><td>4</td><td>2</td><td>20</td><td>Two hits to sink; can bombard land (ATK 4); takes 1 hit before full sinking</td></tr>
@@ -197,11 +197,11 @@ export class RulesPanel {
             <table class="ipc-table">
               <thead><tr><th>Nation</th><th>Starting IPC</th><th>Starting Income</th></tr></thead>
               <tbody>
-                <tr><td class="nat-ussr">Soviet Union</td><td>12</td><td>24</td></tr>
+                <tr><td class="nat-ussr">Soviet Union</td><td>24</td><td>24</td></tr>
                 <tr><td class="nat-germany">Germany</td><td>40</td><td>40</td></tr>
-                <tr><td class="nat-uk">United Kingdom</td><td>20</td><td>28</td></tr>
-                <tr><td class="nat-japan">Japan</td><td>26</td><td>26</td></tr>
-                <tr><td class="nat-usa">United States</td><td>42</td><td>38</td></tr>
+                <tr><td class="nat-japan">Japan</td><td>30</td><td>30</td></tr>
+                <tr><td class="nat-uk">United Kingdom</td><td>31</td><td>31</td></tr>
+                <tr><td class="nat-usa">United States</td><td>42</td><td>42</td></tr>
               </tbody>
             </table>
           </section>
