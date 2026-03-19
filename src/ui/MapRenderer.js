@@ -31,22 +31,39 @@ const NATION_BORDER = {
 const OCEAN_COLOR = '#507080';  // medium-deep steel blue (vintage map ocean)
 const VB_W = 1400, VB_H = 780;
 
-// Unit symbols — single/two-char codes for compact token display
-// Matches the abbreviated style visible in the App Store reference screenshots
+// Unit type abbreviations — clear 2-3 char codes readable inside tokens
 const UNIT_CODE = {
-  infantry:        'I',
-  artillery:       'A',
-  armor:           'T',   // Tank
+  infantry:        'INF',
+  artillery:       'ART',
+  armor:           'TNK',
   antiair:         'AA',
-  fighter:         'F',
-  bomber:          'B',
-  tactical_bomber: 'TB',
-  submarine:       'S',
-  destroyer:       'D',
-  cruiser:         'C',
+  fighter:         'FTR',
+  bomber:          'BMR',
+  tactical_bomber: 'TBM',
+  submarine:       'SUB',
+  destroyer:       'DD',
+  cruiser:         'CA',
   carrier:         'CV',
   battleship:      'BB',
   transport:       'TP',
+};
+
+// Unit type background colors — each type is instantly identifiable by color
+// Land: warm earthy tones | Air: amber/gold tones | Naval: blue tones
+const UNIT_TYPE_COLOR = {
+  infantry:        '#6b5c30',  // olive-tan — classic infantry brown
+  artillery:       '#7a3820',  // brick-red — artillery red
+  armor:           '#3d5a20',  // dark olive — tank green
+  antiair:         '#3a3d50',  // blue-gray — AA gun steel
+  fighter:         '#7a6800',  // dark gold — fighter yellow
+  bomber:          '#7a4010',  // dark amber — bomber orange
+  tactical_bomber: '#5a5010',  // olive-gold — tactical
+  submarine:       '#1c3d52',  // dark teal — submarine deep
+  destroyer:       '#1e4a6a',  // slate blue — destroyer
+  cruiser:         '#20548a',  // medium blue — cruiser
+  carrier:         '#2060a0',  // bright blue — carrier
+  battleship:      '#162848',  // navy — battleship
+  transport:       '#1e5858',  // teal — transport
 };
 
 // Token background: slightly darkened version of nation fill color
@@ -592,8 +609,8 @@ export class MapRenderer {
       const nameLines = this._wrapName(rawName, isLarge ? 16 : 12);
       const nmFontSize = isLarge ? 10.5 : 8.5;
       const lineH = nmFontSize * 1.2;
-      // Base Y: name sits in lower half of territory, below unit tokens
-      const nmBaseY = capitalIds.has(t.id) ? ly + r * 0.18 : ly + r * 0.12;
+      // Base Y: name sits in lower third of territory, well below token cluster
+      const nmBaseY = capitalIds.has(t.id) ? ly + r * 0.22 : ly + r * 0.16;
 
       const nm = this._svgEl('text');
       nm.setAttribute('x', lx);
@@ -622,35 +639,47 @@ export class MapRenderer {
       }
       g.appendChild(nm);
 
-      // IPC badge — larger, clearly readable
+      // IPC badge — gold pill: the IPC value is the most important territory stat
       if (t.ipc > 0) {
-        // Push badge below name (account for 2-line names taking extra vertical space)
+        // Position below name; shift down extra if 2-line name
         const extraH = nameLines.length > 1 ? lineH * 0.55 : 0;
         const badgeY = capitalIds.has(t.id)
-          ? ly + r * 0.68 + extraH
-          : ly + r * 0.60 + extraH;
-        const badgeR = isLarge ? 9.5 : 8;
+          ? ly + r * 0.70 + extraH
+          : ly + r * 0.62 + extraH;
 
-        const circle = this._svgEl('circle');
-        circle.setAttribute('cx', lx); circle.setAttribute('cy', badgeY);
-        circle.setAttribute('r', badgeR);
-        circle.setAttribute('fill', 'rgba(232,220,180,0.90)');
-        circle.setAttribute('stroke', 'rgba(50,35,5,0.80)');
-        circle.setAttribute('stroke-width', '1.3');
-        circle.setAttribute('pointer-events', 'none');
-        g.appendChild(circle);
+        // Pill dimensions scale with IPC value (e.g. "10" is wider than "1")
+        const ipcStr   = String(t.ipc);
+        const pillH    = isLarge ? 14 : 12;
+        const pillW    = Math.max(pillH * 1.2, ipcStr.length * (isLarge ? 7.5 : 6.5) + 10);
+        const pillRx   = pillH / 2;
+        const ipcFontSize = isLarge ? '10' : '8.5';
 
+        // Gold rounded-rect background
+        const pill = this._svgEl('rect');
+        pill.setAttribute('x', lx - pillW / 2);
+        pill.setAttribute('y', badgeY - pillH / 2);
+        pill.setAttribute('width', pillW);
+        pill.setAttribute('height', pillH);
+        pill.setAttribute('rx', pillRx); pill.setAttribute('ry', pillRx);
+        pill.setAttribute('fill', '#c88c10');
+        pill.setAttribute('stroke', '#5a3800');
+        pill.setAttribute('stroke-width', '1.2');
+        pill.setAttribute('pointer-events', 'none');
+        g.appendChild(pill);
+
+        // IPC number in pill — dark text for contrast on gold
         const ipc = this._svgEl('text');
         ipc.setAttribute('x', lx);
-        ipc.setAttribute('y', badgeY + 0.6);
+        ipc.setAttribute('y', badgeY + 0.7);
         ipc.setAttribute('text-anchor', 'middle');
         ipc.setAttribute('dominant-baseline', 'middle');
-        ipc.setAttribute('font-size', isLarge ? '11' : '9.5');
-        ipc.setAttribute('fill', 'rgba(20,10,0,0.95)');
+        ipc.setAttribute('font-size', ipcFontSize);
+        ipc.setAttribute('fill', '#fff5d0');
         ipc.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
-        ipc.setAttribute('font-weight', 'bold');
+        ipc.setAttribute('font-weight', '900');
+        ipc.setAttribute('letter-spacing', '-0.2');
         ipc.setAttribute('class', 'ipc-val');
-        ipc.textContent = String(t.ipc);
+        ipc.textContent = ipcStr;
         g.appendChild(ipc);
       }
 
@@ -732,99 +761,104 @@ export class MapRenderer {
         ordered.forEach(([type, count]) => slots.push({ nat, type, count }));
       });
 
-      const MAX_VIS = 4;
+      // Show up to 5 unit type slots; overflow indicated by "+N" token
+      const MAX_VIS = 5;
       const visible = slots.slice(0, MAX_VIS);
 
-      // Token sizing — readable but compact enough to not obscure territory labels
-      const TR = 8;    // token radius (16px diameter)
-      const TW = 18;   // horizontal spacing between token centers
+      // Token dimensions — large enough to read type + count clearly at zoom-out
+      const TR = 11;   // token radius (22px diameter)
+      const TW = 24;   // horizontal spacing between token centers
       const [cx, cy] = this._getTerrCenter(t);
 
-      // Y position: push tokens well above center so name/IPC badge shows clearly below
+      // Push token cluster into upper territory zone — labels/IPC sit clearly below
       const terrR = t.ipc === 0 ? 10 : Math.max(18, Math.min(48, 12 + t.ipc * 3.2));
-      const baseY = t.type === 'sea' ? cy : cy - terrR * 0.55;
+      const baseY = t.type === 'sea' ? cy : cy - terrR * 0.52;
 
       const startX = cx - ((visible.length - 1) * TW) / 2;
 
       visible.forEach(({ nat, type, count }, i) => {
-        const tx   = startX + i * TW;
-        const bg   = NATION_TOKEN_BG[nat] || '#555';
-        const ring = NATION_BORDER[nat]   || '#888';
-        const code = UNIT_CODE[type]      || type.slice(0, 2).toUpperCase();
+        const tx = startX + i * TW;
+
+        // Token background = unit type color (instant type identification)
+        const typeBg  = UNIT_TYPE_COLOR[type] || '#444440';
+        // Token ring = nation border color (instant ownership identification)
+        const natRing = NATION_BORDER[nat] || '#888';
+
+        // Thicker ring for air/naval to distinguish from land
         const isAir = AIR_UNIT_TYPES.has(type);
         const isNav = NAV_UNIT_TYPES.has(type);
+        const ringW = isAir ? 2.8 : isNav ? 2.5 : 2.0;
 
-        // Ring color: gold for air, blue-teal for naval, nation border for land
-        const ringColor = isAir ? '#d8c038' : isNav ? '#2888c8' : ring;
-        const ringW     = isAir ? 2.0 : isNav ? 1.8 : 1.6;
-        // Top highlight for subtle 3D depth
-        const hlColor   = isAir ? 'rgba(255,248,160,0.35)' : isNav ? 'rgba(80,160,255,0.28)' : 'rgba(255,255,255,0.20)';
-
-        // Drop shadow
+        // Drop shadow beneath token
         const shadow = this._svgEl('circle');
-        shadow.setAttribute('cx', tx + 0.8); shadow.setAttribute('cy', baseY + 1.2);
+        shadow.setAttribute('cx', tx + 1.0); shadow.setAttribute('cy', baseY + 1.5);
         shadow.setAttribute('r', TR + 0.5);
-        shadow.setAttribute('fill', 'rgba(0,0,0,0.50)');
+        shadow.setAttribute('fill', 'rgba(0,0,0,0.55)');
         shadow.setAttribute('pointer-events', 'none');
         this._unitGroup.appendChild(shadow);
 
-        // Main token circle (nation color)
-        this._circle(this._unitGroup, tx, baseY, TR, bg, ringColor, ringW);
+        // Main token circle — unit type color background, nation ring
+        this._circle(this._unitGroup, tx, baseY, TR, typeBg, natRing, ringW);
 
-        // Top-half highlight for 3D sphere effect
+        // Subtle top highlight for 3D depth
         const hl = this._svgEl('ellipse');
-        hl.setAttribute('cx', tx); hl.setAttribute('cy', baseY - TR * 0.28);
-        hl.setAttribute('rx', TR * 0.60); hl.setAttribute('ry', TR * 0.30);
-        hl.setAttribute('fill', hlColor);
+        hl.setAttribute('cx', tx); hl.setAttribute('cy', baseY - TR * 0.30);
+        hl.setAttribute('rx', TR * 0.58); hl.setAttribute('ry', TR * 0.28);
+        hl.setAttribute('fill', 'rgba(255,255,255,0.18)');
         hl.setAttribute('pointer-events', 'none');
         this._unitGroup.appendChild(hl);
 
-        // Unit code text — clean, readable inside the token
-        const isLong = code.length > 2;
+        // COUNT — primary information, large and centered in top half of token
+        const countStr = count > 99 ? '99+' : String(count);
+        const cntSize  = countStr.length > 2 ? '6.5' : countStr.length === 2 ? '8' : '10';
+        const cnt = this._svgEl('text');
+        cnt.setAttribute('x', tx); cnt.setAttribute('y', baseY - TR * 0.14);
+        cnt.setAttribute('text-anchor', 'middle'); cnt.setAttribute('dominant-baseline', 'middle');
+        cnt.setAttribute('font-size', cntSize); cnt.setAttribute('fill', '#ffffff');
+        cnt.setAttribute('font-weight', '900');
+        cnt.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
+        cnt.setAttribute('letter-spacing', '-0.2');
+        cnt.setAttribute('pointer-events', 'none');
+        cnt.textContent = countStr;
+        this._unitGroup.appendChild(cnt);
+
+        // TYPE CODE — secondary info, smaller text in bottom half of token
+        const code    = UNIT_CODE[type] || type.slice(0, 3).toUpperCase();
+        const codeSize = code.length > 2 ? '4.2' : '4.8';
         const ct = this._svgEl('text');
-        ct.setAttribute('x', tx); ct.setAttribute('y', baseY + 0.6);
+        ct.setAttribute('x', tx); ct.setAttribute('y', baseY + TR * 0.58);
         ct.setAttribute('text-anchor', 'middle'); ct.setAttribute('dominant-baseline', 'middle');
-        ct.setAttribute('font-size', isLong ? '5.2' : code.length === 1 ? '7.5' : '6.2');
-        ct.setAttribute('fill', '#ffffff'); ct.setAttribute('font-weight', '900');
+        ct.setAttribute('font-size', codeSize); ct.setAttribute('fill', 'rgba(255,255,220,0.90)');
+        ct.setAttribute('font-weight', 'bold');
         ct.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
-        ct.setAttribute('letter-spacing', isLong ? '-0.3' : '0');
+        ct.setAttribute('letter-spacing', '-0.1');
         ct.setAttribute('pointer-events', 'none');
         ct.textContent = code;
         this._unitGroup.appendChild(ct);
 
-        // Count badge — bottom-right of token (always shown, orange for quantity)
-        const badgeR = count > 1 ? 4.8 : 4.0;
-        const bx = tx + TR * 0.65, by = baseY + TR * 0.65;
-        const badge = this._svgEl('circle');
-        badge.setAttribute('cx', bx); badge.setAttribute('cy', by);
-        badge.setAttribute('r', badgeR);
-        badge.setAttribute('fill', count > 1 ? '#c88010' : '#2a3820');
-        badge.setAttribute('stroke', 'rgba(0,0,0,0.75)'); badge.setAttribute('stroke-width', '0.6');
-        badge.setAttribute('pointer-events', 'none');
-        this._unitGroup.appendChild(badge);
-        const bt = this._svgEl('text');
-        bt.setAttribute('x', bx); bt.setAttribute('y', by + 0.5);
-        bt.setAttribute('text-anchor', 'middle'); bt.setAttribute('dominant-baseline', 'middle');
-        bt.setAttribute('font-size', count > 1 ? '5.5' : '4.8'); bt.setAttribute('fill', count > 1 ? '#fff' : '#aac080');
-        bt.setAttribute('font-weight', '900'); bt.setAttribute('pointer-events', 'none');
-        bt.textContent = count > 9 ? '9+' : String(count);
-        this._unitGroup.appendChild(bt);
+        // Thin divider line between count and type code
+        const div = this._svgEl('line');
+        div.setAttribute('x1', tx - TR * 0.55); div.setAttribute('y1', baseY + TR * 0.18);
+        div.setAttribute('x2', tx + TR * 0.55); div.setAttribute('y2', baseY + TR * 0.18);
+        div.setAttribute('stroke', 'rgba(255,255,255,0.20)'); div.setAttribute('stroke-width', '0.6');
+        div.setAttribute('pointer-events', 'none');
+        this._unitGroup.appendChild(div);
       });
 
-      // Overflow indicator — "+N more" compact token
+      // Overflow indicator — "+N" token when more unit types exist than MAX_VIS
       if (slots.length > MAX_VIS) {
         const bx = startX + MAX_VIS * TW;
         const shadow = this._svgEl('circle');
-        shadow.setAttribute('cx', bx + 0.8); shadow.setAttribute('cy', baseY + 1.2);
+        shadow.setAttribute('cx', bx + 1.0); shadow.setAttribute('cy', baseY + 1.5);
         shadow.setAttribute('r', TR + 0.5);
-        shadow.setAttribute('fill', 'rgba(0,0,0,0.35)');
+        shadow.setAttribute('fill', 'rgba(0,0,0,0.40)');
         shadow.setAttribute('pointer-events', 'none');
         this._unitGroup.appendChild(shadow);
-        this._circle(this._unitGroup, bx, baseY, TR, '#2a2820', '#686858', 1.5);
+        this._circle(this._unitGroup, bx, baseY, TR, '#2a2820', '#888878', 1.8);
         const et = this._svgEl('text');
-        et.setAttribute('x', bx); et.setAttribute('y', baseY + 0.6);
+        et.setAttribute('x', bx); et.setAttribute('y', baseY + 0.5);
         et.setAttribute('text-anchor', 'middle'); et.setAttribute('dominant-baseline', 'middle');
-        et.setAttribute('font-size', '4.5'); et.setAttribute('fill', '#c0b888');
+        et.setAttribute('font-size', '6'); et.setAttribute('fill', '#d0c898');
         et.setAttribute('font-weight', 'bold'); et.setAttribute('pointer-events', 'none');
         et.textContent = `+${slots.length - MAX_VIS}`;
         this._unitGroup.appendChild(et);
