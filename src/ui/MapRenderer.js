@@ -277,10 +277,20 @@ export class MapRenderer {
               orient="auto" markerUnits="strokeWidth">
         <path d="M0,0 L0,6 L6,3 Z" fill="#f0c840" opacity="0.9"/>
       </marker>
-      <!-- Text shadow for label readability -->
-      <filter id="txt-sh" x="-25%" y="-25%" width="150%" height="150%">
-        <feDropShadow dx="0" dy="0" stdDeviation="2"
-          flood-color="rgba(0,0,0,0.85)" flood-opacity="1"/>
+      <!-- Text shadow for capital emblems / VC markers -->
+      <filter id="txt-sh" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="2.5"
+          flood-color="rgba(0,0,0,0.95)" flood-opacity="1"/>
+      </filter>
+      <!-- Dark halo outline for territory names — readable over any territory color -->
+      <filter id="txt-outline" x="-25%" y="-30%" width="150%" height="160%">
+        <feMorphology operator="dilate" radius="1.4" in="SourceAlpha" result="thick"/>
+        <feFlood flood-color="rgba(4,2,0,0.93)" result="color"/>
+        <feComposite in="color" in2="thick" operator="in" result="outline"/>
+        <feMerge>
+          <feMergeNode in="outline"/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
       </filter>
       <!-- Glow for selected territory -->
       <filter id="sel-glow" x="-30%" y="-30%" width="160%" height="160%">
@@ -455,8 +465,8 @@ export class MapRenderer {
       txt.setAttribute('x', t.x); txt.setAttribute('y', t.y);
       txt.setAttribute('text-anchor', 'middle');
       txt.setAttribute('dominant-baseline', 'middle');
-      txt.setAttribute('font-size', '13');
-      txt.setAttribute('fill', 'rgba(210,230,248,0.55)');
+      txt.setAttribute('font-size', '15');
+      txt.setAttribute('fill', 'rgba(210,230,248,0.65)');
       txt.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
       txt.setAttribute('font-weight', '900');
       txt.setAttribute('letter-spacing', '0.5');
@@ -469,27 +479,40 @@ export class MapRenderer {
   // ── TERRITORY LABELS (name + IPC, drawn on top of polygons) ────────────────
   // Styled to match vintage board-game aesthetic: minimal text, subtle labels
 
+  // Helper: split a territory name into 1 or 2 lines for display.
+  // Breaks at the space nearest the middle of the string when name exceeds threshold.
+  _wrapName(name, threshold) {
+    if (name.length <= threshold) return [name];
+    const mid = Math.floor(name.length / 2);
+    let best = -1, bestD = Infinity;
+    for (let i = 0; i < name.length; i++) {
+      if (name[i] === ' ') {
+        const d = Math.abs(i - mid);
+        if (d < bestD) { bestD = d; best = i; }
+      }
+    }
+    if (best === -1) return [name];
+    return [name.slice(0, best), name.slice(best + 1)];
+  }
+
   _drawStaticLabels() {
     const capitalIds = new Set(
       Object.values(NATIONS).filter(n => n.capital).map(n => n.capital)
     );
     // Nation-specific capital emblems — each nation has a distinctive marker
-    // matching the reference app's national insignia style
     const CAPITAL_EMBLEM = {
-      germany:        '✚',   // Iron Cross (Balkenkreuz approximation)
-      russia:         '★',   // Soviet Red Star
-      united_kingdom: '⊕',   // British target/cross
-      eastern_us:     '★',   // American star
-      japan:          '⊙',   // Rising Sun (concentric circle approximation)
-      australia:      '⊕',   // Commonwealth cross/target
+      germany:        '✚',
+      russia:         '★',
+      united_kingdom: '⊕',
+      eastern_us:     '★',
+      japan:          '⊙',
+      australia:      '⊕',
     };
-    // Build territoryId → emblem map via NATIONS capital lookup
     const capitalEmblem = {};
     Object.values(NATIONS).forEach(n => {
       if (n.capital) capitalEmblem[n.capital] = CAPITAL_EMBLEM[n.id] || '★';
     });
 
-    // Non-capital Victory Cities — get a smaller gold diamond marker
     const ALL_VCS = new Set([
       'germany', 'western_europe', 'southern_europe', 'japan', 'manchuria',
       'russia', 'united_kingdom', 'eastern_us', 'india', 'australia',
@@ -509,58 +532,54 @@ export class MapRenderer {
       const r = t.ipc === 0 ? 16 : Math.max(20, Math.min(50, 12 + t.ipc * 3.2));
       const isLarge = r >= 36;
 
-      // Capital emblem — nation-specific symbol (★ ⊙ ✚ ⊕)
+      // Capital emblem — sits above territory center (unit tokens are also upper half)
       if (capitalIds.has(t.id)) {
         const star = this._svgEl('text');
-        star.setAttribute('x', lx); star.setAttribute('y', ly - r * 0.5);
+        star.setAttribute('x', lx); star.setAttribute('y', ly - r * 0.62);
         star.setAttribute('text-anchor', 'middle');
         star.setAttribute('dominant-baseline', 'middle');
-        star.setAttribute('font-size', isLarge ? '11' : '9');
-        star.setAttribute('fill', '#e8c838');
+        star.setAttribute('font-size', isLarge ? '14' : '12');
+        star.setAttribute('fill', '#ffe050');
         star.setAttribute('filter', 'url(#txt-sh)');
         star.textContent = capitalEmblem[t.id] || '★';
         g.appendChild(star);
       }
-      // Non-capital Victory City — small gold diamond ◆
+      // Non-capital Victory City — gold diamond
       if (nonCapVCs.has(t.id)) {
         const vc = this._svgEl('text');
-        vc.setAttribute('x', lx); vc.setAttribute('y', ly - r * 0.5);
+        vc.setAttribute('x', lx); vc.setAttribute('y', ly - r * 0.62);
         vc.setAttribute('text-anchor', 'middle');
         vc.setAttribute('dominant-baseline', 'middle');
-        vc.setAttribute('font-size', isLarge ? '8' : '6.5');
-        vc.setAttribute('fill', '#d4a820');
+        vc.setAttribute('font-size', isLarge ? '11' : '9');
+        vc.setAttribute('fill', '#e8c030');
         vc.setAttribute('filter', 'url(#txt-sh)');
         vc.textContent = '◆';
         g.appendChild(vc);
       }
 
-      // Industrial Complex icon — factory chimney symbol, positioned to not overlap label
+      // Industrial Complex icon
       {
-        // IC container group so we can toggle visibility cleanly
         const icg = this._svgEl('g');
         icg.setAttribute('pointer-events', 'none');
         icg.style.display = this.state.industrialComplexes?.[t.id] ? '' : 'none';
 
-        // Position: upper-right of territory label area
-        const icx = lx + (isLarge ? 13 : 10);
-        const icy = ly - r * 0.42;
-        const ics = isLarge ? 1.15 : 0.90; // scale factor
+        const icx = lx + (isLarge ? 18 : 13);
+        const icy = ly - r * 0.58;
+        const ics = isLarge ? 1.3 : 1.0;
 
-        // Dark circular background badge for IC icon
         const icBg = this._svgEl('circle');
         icBg.setAttribute('cx', icx); icBg.setAttribute('cy', icy);
-        icBg.setAttribute('r', String(7 * ics));
-        icBg.setAttribute('fill', 'rgba(10,6,0,0.72)');
-        icBg.setAttribute('stroke', '#c89020'); icBg.setAttribute('stroke-width', '0.9');
+        icBg.setAttribute('r', String(8 * ics));
+        icBg.setAttribute('fill', 'rgba(10,6,0,0.80)');
+        icBg.setAttribute('stroke', '#d8a020'); icBg.setAttribute('stroke-width', '1.1');
         icg.appendChild(icBg);
 
-        // Factory text symbol — ⚒ (crossed tools) or ⚙ (gear)
         const icTxt = this._svgEl('text');
-        icTxt.setAttribute('x', icx); icTxt.setAttribute('y', icy + 0.8);
+        icTxt.setAttribute('x', icx); icTxt.setAttribute('y', icy + 1);
         icTxt.setAttribute('text-anchor', 'middle');
         icTxt.setAttribute('dominant-baseline', 'middle');
-        icTxt.setAttribute('font-size', String(8 * ics));
-        icTxt.setAttribute('fill', '#f0c030');
+        icTxt.setAttribute('font-size', String(9 * ics));
+        icTxt.setAttribute('fill', '#f8d040');
         icTxt.textContent = '⚒';
         icg.appendChild(icTxt);
 
@@ -568,45 +587,66 @@ export class MapRenderer {
         this._icElems[t.id] = icg;
       }
 
-      // Territory name — subtle uppercase text, very faint like reference board-game look
-      const maxChars = isLarge ? 20 : 14;
+      // Territory name — smart 2-line wrapping, large font, dark halo outline
       const rawName = t.name.toUpperCase();
-      const shortName = rawName.length > maxChars ? rawName.slice(0, maxChars - 1) + '…' : rawName;
+      const nameLines = this._wrapName(rawName, isLarge ? 16 : 12);
+      const nmFontSize = isLarge ? 10.5 : 8.5;
+      const lineH = nmFontSize * 1.2;
+      // Base Y: name sits in lower half of territory, below unit tokens
+      const nmBaseY = capitalIds.has(t.id) ? ly + r * 0.18 : ly + r * 0.12;
+
       const nm = this._svgEl('text');
       nm.setAttribute('x', lx);
-      nm.setAttribute('y', capitalIds.has(t.id) ? ly + 2 : ly - (t.ipc > 0 ? 2 : 0));
       nm.setAttribute('text-anchor', 'middle');
       nm.setAttribute('dominant-baseline', 'middle');
-      nm.setAttribute('font-size', isLarge ? '7' : '5.8');
-      nm.setAttribute('fill', 'rgba(255,252,230,0.60)');
+      nm.setAttribute('font-size', String(nmFontSize));
+      nm.setAttribute('fill', 'rgba(255,253,235,0.95)');
       nm.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
       nm.setAttribute('font-weight', 'bold');
-      nm.setAttribute('letter-spacing', '0.6');
-      nm.setAttribute('filter', 'url(#txt-sh)');
-      nm.textContent = shortName;
+      nm.setAttribute('letter-spacing', isLarge ? '0.5' : '0.2');
+      nm.setAttribute('filter', 'url(#txt-outline)');
+
+      if (nameLines.length === 1) {
+        nm.setAttribute('y', nmBaseY);
+        nm.textContent = nameLines[0];
+      } else {
+        // 2 lines: first tspan goes up half a lineH, second comes down a full lineH
+        nm.setAttribute('y', nmBaseY);
+        nameLines.forEach((line, li) => {
+          const ts = this._svgEl('tspan');
+          ts.setAttribute('x', lx);
+          ts.setAttribute('dy', li === 0 ? String(-lineH * 0.5) : String(lineH));
+          ts.textContent = line;
+          nm.appendChild(ts);
+        });
+      }
       g.appendChild(nm);
 
-      // IPC value — circled badge matching reference app style (light circle, dark number)
+      // IPC badge — larger, clearly readable
       if (t.ipc > 0) {
-        const badgeY = capitalIds.has(t.id) ? ly + r * 0.45 : ly + r * 0.40;
-        const badgeR = isLarge ? 7.5 : 6;
-        // Light parchment circle with dark outline — matching reference board-game look
+        // Push badge below name (account for 2-line names taking extra vertical space)
+        const extraH = nameLines.length > 1 ? lineH * 0.55 : 0;
+        const badgeY = capitalIds.has(t.id)
+          ? ly + r * 0.68 + extraH
+          : ly + r * 0.60 + extraH;
+        const badgeR = isLarge ? 9.5 : 8;
+
         const circle = this._svgEl('circle');
         circle.setAttribute('cx', lx); circle.setAttribute('cy', badgeY);
         circle.setAttribute('r', badgeR);
-        circle.setAttribute('fill', 'rgba(225,215,185,0.78)');
-        circle.setAttribute('stroke', 'rgba(60,45,10,0.70)');
-        circle.setAttribute('stroke-width', '1.1');
+        circle.setAttribute('fill', 'rgba(232,220,180,0.90)');
+        circle.setAttribute('stroke', 'rgba(50,35,5,0.80)');
+        circle.setAttribute('stroke-width', '1.3');
         circle.setAttribute('pointer-events', 'none');
         g.appendChild(circle);
 
         const ipc = this._svgEl('text');
         ipc.setAttribute('x', lx);
-        ipc.setAttribute('y', badgeY + 0.5);
+        ipc.setAttribute('y', badgeY + 0.6);
         ipc.setAttribute('text-anchor', 'middle');
         ipc.setAttribute('dominant-baseline', 'middle');
-        ipc.setAttribute('font-size', isLarge ? '9' : '7.5');
-        ipc.setAttribute('fill', 'rgba(25,15,0,0.90)');
+        ipc.setAttribute('font-size', isLarge ? '11' : '9.5');
+        ipc.setAttribute('fill', 'rgba(20,10,0,0.95)');
         ipc.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
         ipc.setAttribute('font-weight', 'bold');
         ipc.setAttribute('class', 'ipc-val');
@@ -692,17 +732,17 @@ export class MapRenderer {
         ordered.forEach(([type, count]) => slots.push({ nat, type, count }));
       });
 
-      const MAX_VIS = 5;
+      const MAX_VIS = 4;
       const visible = slots.slice(0, MAX_VIS);
 
-      // Compact token sizing — matches reference screenshot aesthetic
-      const TR = 7;    // token radius (smaller = cleaner, matches reference ~14px diameter)
-      const TW = 16;   // horizontal spacing between token centers (tighter)
+      // Token sizing — readable but compact enough to not obscure territory labels
+      const TR = 8;    // token radius (16px diameter)
+      const TW = 18;   // horizontal spacing between token centers
       const [cx, cy] = this._getTerrCenter(t);
 
-      // Y position: push tokens slightly upward from territory center so IPC badge shows below
+      // Y position: push tokens well above center so name/IPC badge shows clearly below
       const terrR = t.ipc === 0 ? 10 : Math.max(18, Math.min(48, 12 + t.ipc * 3.2));
-      const baseY = t.type === 'sea' ? cy : cy - terrR * 0.28;
+      const baseY = t.type === 'sea' ? cy : cy - terrR * 0.55;
 
       const startX = cx - ((visible.length - 1) * TW) / 2;
 
@@ -744,7 +784,7 @@ export class MapRenderer {
         const ct = this._svgEl('text');
         ct.setAttribute('x', tx); ct.setAttribute('y', baseY + 0.6);
         ct.setAttribute('text-anchor', 'middle'); ct.setAttribute('dominant-baseline', 'middle');
-        ct.setAttribute('font-size', isLong ? '4.0' : code.length === 1 ? '6.0' : '5.0');
+        ct.setAttribute('font-size', isLong ? '5.2' : code.length === 1 ? '7.5' : '6.2');
         ct.setAttribute('fill', '#ffffff'); ct.setAttribute('font-weight', '900');
         ct.setAttribute('font-family', 'Arial Narrow, Arial, sans-serif');
         ct.setAttribute('letter-spacing', isLong ? '-0.3' : '0');
@@ -753,7 +793,7 @@ export class MapRenderer {
         this._unitGroup.appendChild(ct);
 
         // Count badge — bottom-right of token (always shown, orange for quantity)
-        const badgeR = count > 1 ? 3.8 : 3.2;
+        const badgeR = count > 1 ? 4.8 : 4.0;
         const bx = tx + TR * 0.65, by = baseY + TR * 0.65;
         const badge = this._svgEl('circle');
         badge.setAttribute('cx', bx); badge.setAttribute('cy', by);
@@ -765,7 +805,7 @@ export class MapRenderer {
         const bt = this._svgEl('text');
         bt.setAttribute('x', bx); bt.setAttribute('y', by + 0.5);
         bt.setAttribute('text-anchor', 'middle'); bt.setAttribute('dominant-baseline', 'middle');
-        bt.setAttribute('font-size', count > 1 ? '4.5' : '3.8'); bt.setAttribute('fill', count > 1 ? '#fff' : '#aac080');
+        bt.setAttribute('font-size', count > 1 ? '5.5' : '4.8'); bt.setAttribute('fill', count > 1 ? '#fff' : '#aac080');
         bt.setAttribute('font-weight', '900'); bt.setAttribute('pointer-events', 'none');
         bt.textContent = count > 9 ? '9+' : String(count);
         this._unitGroup.appendChild(bt);
