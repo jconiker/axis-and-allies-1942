@@ -65,6 +65,7 @@ export class RulesPanel {
               <li><span class="nat-japan">Japan</span></li>
               <li><span class="nat-uk">United Kingdom</span></li>
               <li><span class="nat-usa">United States</span></li>
+              <li><span class="nat-australia">Australia</span></li>
             </ol>
             <p class="rule-note">Each nation completes all 6 phases before the next nation takes their turn.</p>
           </section>
@@ -104,8 +105,9 @@ export class RulesPanel {
                 <p>Resolve all battles you initiated. The attacker may <strong>withdraw</strong> after any round of combat.</p>
                 <p><strong>Combat rounds:</strong></p>
                 <ol>
-                  <li>Defender's AA guns fire at attacking aircraft (hits on a 1; each gun fires once)</li>
-                  <li>All attacking units fire simultaneously — assign hits to defending units</li>
+                  <li>Defender's AA guns fire: <strong>1 die per attacking aircraft</strong> (hits on 1). Multiple AA guns do NOT add extra dice.</li>
+                  <li><strong>Submarines with first strike</strong> fire before defenders (no enemy destroyer present); casualties removed immediately before defenders fire back</li>
+                  <li>All remaining attacking units fire simultaneously — assign hits to defending units</li>
                   <li>All defending units fire simultaneously — assign hits to attacking units</li>
                   <li>Remove casualties. Attacker decides to continue or withdraw.</li>
                 </ol>
@@ -126,8 +128,8 @@ export class RulesPanel {
               <div class="phase-num">5</div>
               <div class="phase-content">
                 <h3>MOBILIZE NEW UNITS (Place)</h3>
-                <p>Place all units purchased in Phase 1 on territories you control that contain an <strong>Industrial Complex (🏭)</strong>. You may place up to <strong>3 units per IC per turn</strong> (or more with Industrial Technology).</p>
-                <p>Naval units are placed in a friendly sea zone adjacent to the IC territory.</p>
+                <p>Place all units purchased in Phase 1 on territories you control that contain an <strong>Industrial Complex (🏭)</strong>. You may place up to a number of units equal to the <strong>IPC value</strong> of that territory per IC per turn (reduced by any IC damage tokens). Naval units are placed in a sea zone adjacent to the IC territory.</p>
+                <p>You may also spend IPC to <strong>repair IC damage</strong> (1 IPC per damage token) — use the Industry tab in the purchase panel.</p>
               </div>
             </div>
 
@@ -150,7 +152,7 @@ export class RulesPanel {
                 <tr class="land"><td>Infantry</td><td>INF</td><td>1</td><td>2</td><td>1</td><td>3</td><td>Boosted to ATK 2 when paired with Artillery</td></tr>
                 <tr class="land"><td>Artillery</td><td>ART</td><td>2</td><td>2</td><td>1</td><td>4</td><td>Boosts 1 paired Infantry to ATK 2</td></tr>
                 <tr class="land"><td>Armor (Tank)</td><td>ARM</td><td>3</td><td>3</td><td>2</td><td>6</td><td>Can blitz through undefended territory (2 moves)</td></tr>
-                <tr class="land"><td>Anti-Aircraft</td><td>AA</td><td>—</td><td>1</td><td>1</td><td>5</td><td>Fires at air units before combat (hits on 1); 1 AA shot per attacking plane; max 3 shots; cannot move in combat phase</td></tr>
+                <tr class="land"><td>Anti-Aircraft</td><td>AA</td><td>—</td><td>1</td><td>1</td><td>5</td><td>Fires at attacking aircraft before combat (hits on 1). Rolls 1 die per attacking plane — multiple AA guns do NOT stack. Cannot move in combat phase.</td></tr>
                 <tr class="air"><td>Fighter</td><td>FTR</td><td>3</td><td>4</td><td>4</td><td>10</td><td>Must land on carrier or friendly territory; can escort/intercept</td></tr>
                 <tr class="air"><td>Bomber</td><td>BMB</td><td>4</td><td>1</td><td>6</td><td>12</td><td>Can conduct strategic bombing runs on ICs (roll 1d6, deal that much damage)</td></tr>
                 <tr class="naval"><td>Submarine</td><td>SUB</td><td>2</td><td>1</td><td>2</td><td>6</td><td>First strike; can submerge to avoid combat; ignored by surface ships (unless destroyer present)</td></tr>
@@ -169,8 +171,9 @@ export class RulesPanel {
             <h3>Amphibious Assaults</h3>
             <p>Transport land units to a sea zone adjacent to an enemy territory. Warships in the same sea zone may provide <strong>shore bombardment</strong> (each fires once at its ATK value before the first round of combat). You must clear the sea zone of enemy ships first (sea battle), or the assault is blocked.</p>
 
-            <h3>Strategic Bombing</h3>
-            <p>Send bombers to attack an enemy Industrial Complex. The defender may scramble fighters from within 1 territory range to intercept. If uncontested, each bomber rolls 1d6 and deals that much damage (max = current IC production capacity). IC damage reduces production by 1 unit per damage point until repaired (costs 1 IPC per damage point during Phase 5).</p>
+            <h3>Strategic Bombing Runs (SBR)</h3>
+            <p>During Combat Movement, move bombers to an enemy territory with an Industrial Complex. You will be prompted to choose: <strong>💣 Strategic Bomb</strong> (SBR) or <strong>✈️ Join Combat</strong>.</p>
+            <p>If SBR: the defending AA gun fires (1 die per bomber, hits on 1). Each surviving bomber then rolls 1d6 and deals that much IC damage. Maximum total damage = <strong>2× the territory's IPC value</strong>. Bombers return to their origin territory after the run. IC damage reduces that IC's production capacity until repaired.</p>
 
             <h3>Submarine Rules</h3>
             <ul>
@@ -186,9 +189,11 @@ export class RulesPanel {
           <!-- INDUSTRIAL COMPLEXES -->
           <section>
             <h2>INDUSTRIAL COMPLEXES 🏭</h2>
-            <p>Starting IC locations: <strong>Germany, Russia, United Kingdom, Eastern US, Japan</strong>.</p>
-            <p>Each IC allows you to build up to <strong>3 units per turn</strong>. If an enemy captures a territory with your IC, they now control that IC and may use it on their turn.</p>
-            <p>New ICs may be built for 15 IPC during Phase 5 on any territory you control with an IPC value of 2 or more.</p>
+            <p>Starting IC locations: <strong>Germany, Russia, United Kingdom, Eastern US, Japan, Australia</strong>.</p>
+            <p>Each IC allows production up to the <strong>IPC value of that territory</strong> per turn (e.g. Moscow = 6 units, Eastern US = 12 units). IC damage from strategic bombing reduces this cap: a bombed IC produces fewer units until repaired.</p>
+            <p>If an enemy captures a territory with your IC, they now control that IC and may use it on their turn.</p>
+            <p>New ICs cost <strong>15 IPC</strong> (Phase 5). Minimum territory value: <strong>3 IPC</strong>. Cannot build on a territory that already has an IC.</p>
+            <p><strong>Repairing damage:</strong> During Phase 1 (Purchase), spend 1 IPC per damage token using the Industry tab. Repairs take effect immediately, increasing that round's production capacity.</p>
           </section>
 
           <!-- NATIONAL STARTING IPC -->
@@ -202,6 +207,7 @@ export class RulesPanel {
                 <tr><td class="nat-japan">Japan</td><td>30</td><td>30</td></tr>
                 <tr><td class="nat-uk">United Kingdom</td><td>31</td><td>31</td></tr>
                 <tr><td class="nat-usa">United States</td><td>42</td><td>42</td></tr>
+                <tr><td class="nat-australia">Australia</td><td>10</td><td>10</td></tr>
               </tbody>
             </table>
           </section>
@@ -361,7 +367,8 @@ const RULES_CSS = `
   .nat-germany { color: #70b8c8; }
   .nat-uk      { color: #e8a030; }
   .nat-japan   { color: #e8c830; }
-  .nat-usa     { color: #50c040; }
+  .nat-usa       { color: #50c040; }
+  .nat-australia { color: #2ac888; }
 
   /* Scrollbar */
   .rules-body::-webkit-scrollbar { width: 6px; }
