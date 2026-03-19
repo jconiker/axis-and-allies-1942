@@ -89,11 +89,12 @@ export class CombatModal {
 
       ${this._log.length > 0 ? `
         <div class="cm-log">
-          ${this._log.slice(-3).map(l => {
-            if (l.aa)    return `<div class="cm-log-line aa">⚡ AA guns fire: <b>${l.hits}</b> aircraft shot down</div>`;
+          ${this._log.slice(-5).map(l => {
+            if (l.aa)  return `<div class="cm-log-line aa">⚡ AA guns fire: <b>${l.hits}</b> aircraft shot down</div>`;
+            if (l.sub) return `<div class="cm-log-line sub">🤿 Sub first strike: <b>${l.hits}</b> hit${l.hits !== 1 ? 's' : ''}${l.suppressed ? ' — defenders silenced!' : ''}</div>`;
             if (l.error) return `<div class="cm-log-line err">⚠ Combat error — retry</div>`;
             return `<div class="cm-log-line">
-              <div class="cm-log-round">Round ${l.round}</div>
+              <div class="cm-log-round">Round ${l.round}${l.firstStrike ? ' 🤿' : ''}</div>
               <div class="cm-log-row">
                 <span class="cm-log-atk">Attk</span>
                 <span class="cm-log-dice">${l.atkDice}</span>
@@ -179,33 +180,59 @@ export class CombatModal {
         this._log.push({ aa: true, hits: result.aaResults.hits });
       }
 
-      // Attacker hits → pick defender casualties
-      const defCas = CombatEngine.selectCasualties(
-        this.state.getUnits(this._tid).filter(u => u.nation !== nation),
-        result.attackerHits, false
-      );
+      let defKilled = 0;
+      let atkKilled = 0;
+      let effectiveDefHits = result.defenderHits;
+
+      // ── FIRST STRIKE (submarines, no enemy destroyer) ────────────────────
+      // Submarine hits applied BEFORE defenders fire; if all defenders die,
+      // defenders don't get to return fire.
+      if (result.firstStrikeActive && result.subHits > 0) {
+        const subTargets = this.state.getUnits(this._tid).filter(u => u.nation !== nation);
+        const subCas = CombatEngine.selectCasualties(subTargets, result.subHits, false);
+        subCas.filter(c => c.killed).forEach(c => {
+          this.state.units[this._tid] = this.state.units[this._tid].filter(u => u.id !== c.unit.id);
+          defKilled++;
+        });
+        // Suppress defender return fire if sub first-strike wiped them out
+        const remainingDef = this.state.getUnits(this._tid).filter(u => u.nation !== nation);
+        if (remainingDef.length === 0) {
+          effectiveDefHits = 0;
+          this._log.push({ sub: true, hits: result.subHits, suppressed: true });
+        } else {
+          this._log.push({ sub: true, hits: result.subHits, suppressed: false });
+        }
+      }
+
+      // ── MAIN ATTACKER HITS (non-sub, or all attackers if no first strike) ───
+      const mainHits = result.firstStrikeActive
+        ? result.mainAttackerHits         // subs already applied above
+        : result.attackerHits;            // subs included (destroyer present)
+
+      const remainingDef2 = this.state.getUnits(this._tid).filter(u => u.nation !== nation);
+      const defCas = CombatEngine.selectCasualties(remainingDef2, mainHits, false);
       defCas.filter(c => c.killed).forEach(c => {
         this.state.units[this._tid] = this.state.units[this._tid].filter(u => u.id !== c.unit.id);
+        defKilled++;
       });
 
-      // Defender hits → pick attacker casualties
+      // ── DEFENDER HITS (simultaneous with main attacker fire) ─────────────
       const atkCas = CombatEngine.selectCasualties(
         this.state.getUnits(this._tid, nation),
-        result.defenderHits, true
+        effectiveDefHits, true
       );
       atkCas.filter(c => c.killed).forEach(c => {
         this.state.units[this._tid] = this.state.units[this._tid].filter(u => u.id !== c.unit.id);
+        atkKilled++;
       });
-
-      const atkKilled = atkCas.filter(c => c.killed).length;
-      const defKilled = defCas.filter(c => c.killed).length;
 
       this._log.push({
         round: this._round,
-        atkHits: result.attackerHits, defHits: result.defenderHits,
+        atkHits: result.attackerHits, defHits: effectiveDefHits,
         atkDice: this._renderDiceRow(result.attackerRolls || [], result.attackerHits),
         defDice: this._renderDiceRow(result.defenderRolls || [], result.defenderHits),
         atkKilled, defKilled,
+        firstStrike: result.firstStrikeActive,
       });
 
       this.state.autosave();
@@ -302,6 +329,7 @@ const COMBAT_CSS = `
   }
   .cm-log-line { font-size: 0.72rem; color: #8aaa8a; margin-bottom: 6px; }
   .cm-log-line.aa  { color: #e8c840; }
+  .cm-log-line.sub { color: #40c8e8; }
   .cm-log-line.err { color: #e05040; }
   .cm-log-round  { font-size: 0.62rem; color: #506080; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
   .cm-log-row    { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }

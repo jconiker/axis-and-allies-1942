@@ -14,47 +14,54 @@ export class MoveValidator {
   getNonCombatMoves(unit, fromId) {
     const def = getAllUnits()[unit.type];
     if (!def) return [];
-    return this._floodFill(fromId, def.movement, unit.nation, false);
+    return this._floodFill(fromId, def.movement, unit.nation, false, unit.type);
   }
 
   /** Get all territories a unit can ATTACK from (combat movement) */
   getCombatMoves(unit, fromId) {
     const def = getAllUnits()[unit.type];
     if (!def) return [];
-    return this._floodFill(fromId, def.movement, unit.nation, true);
+    return this._floodFill(fromId, def.movement, unit.nation, true, unit.type);
   }
 
   /** BFS flood fill for reachable territories */
-  _floodFill(startId, maxMove, nation, allowCombat) {
+  _floodFill(startId, maxMove, nation, allowCombat, unitType) {
     const reachable = new Set();
-    const queue = [{ id: startId, movesLeft: maxMove }];
-    const visited = new Set([startId]);
+    const queue = [{ id: startId, movesLeft: maxMove, enteredEnemy: false }];
+    const visited = new Map(); // id → movesLeft
 
     while (queue.length > 0) {
-      const { id, movesLeft } = queue.shift();
+      const { id, movesLeft, enteredEnemy } = queue.shift();
       const territory = TERRITORIES[id];
       if (!territory) continue;
 
       territory.adjacent.forEach(adjId => {
-        if (visited.has(adjId)) return;
         const adj = TERRITORIES[adjId];
         if (!adj) return;
 
-        const ownedByEnemy = adj.startOwner && this._isEnemy(this.state.ownership[adjId], nation);
+        if (!this._canEnter(id, adjId, nation, allowCombat, unitType)) return;
+
+        const ownedByEnemy = this._isEnemy(this.state.ownership[adjId], nation);
         const hasEnemyUnits = (this.state.units[adjId] || []).some(u => this._isEnemy(u.nation, nation));
+        const isEnemy = ownedByEnemy || hasEnemyUnits;
 
-        // Land units can't enter sea zones (except transported)
-        const unitDef = getAllUnits()[/* unit.type - need it */ id] || {};
-        // Simplified: check territory type compatibility
-        const fromTerr = TERRITORIES[id];
-        if (!this._canEnter(id, adjId, nation, allowCombat)) return;
+        // Non-combat: can't enter enemy territories
+        if (!allowCombat && isEnemy) return;
 
-        visited.add(adjId);
         reachable.add(adjId);
 
-        // Can continue through friendly territory
-        if (movesLeft > 1 && !hasEnemyUnits && !ownedByEnemy) {
-          queue.push({ id: adjId, movesLeft: movesLeft - 1 });
+        if (movesLeft > 1) {
+          const prev = visited.get(adjId);
+          if (prev === undefined || prev < movesLeft - 1) {
+            visited.set(adjId, movesLeft - 1);
+            // Land/naval stop at enemy territory (can't pass through in combat)
+            // Air units can fly over (but must still count movement)
+            const unitDef = getAllUnits()[unitType] || {};
+            const canPassThrough = unitDef.type === 'air' || (!isEnemy && !enteredEnemy);
+            if (canPassThrough) {
+              queue.push({ id: adjId, movesLeft: movesLeft - 1, enteredEnemy: isEnemy });
+            }
+          }
         }
       });
     }
@@ -62,12 +69,28 @@ export class MoveValidator {
     return [...reachable];
   }
 
-  _canEnter(fromId, toId, nation, allowCombat) {
+  _canEnter(fromId, toId, nation, allowCombat, unitType) {
     const from = TERRITORIES[fromId];
-    const to = TERRITORIES[toId];
+    const to   = TERRITORIES[toId];
     if (!from || !to) return false;
-    // Sea units can't enter land, land units can't enter sea (simplified)
-    return true; // detailed validation in full implementation
+
+    const unitDef = getAllUnits()[unitType];
+    if (!unitDef) return true; // unknown unit type — allow
+
+    const uType = unitDef.type; // 'land' | 'sea' | 'air'
+
+    // Land units cannot enter sea zones
+    if (uType === 'land' && to.type === 'sea') return false;
+
+    // Sea units cannot enter land territories
+    if (uType === 'sea' && to.type !== 'sea') return false;
+
+    // Air units can enter any territory (landing restrictions handled separately)
+    // Sub-specific: can enter sea zones even with enemy surface ships (special rule)
+
+    // AA guns cannot move in combat phase (enforced in App._getValidTargets)
+
+    return true;
   }
 
   _isEnemy(ownerOrNation, myNation) {

@@ -51,18 +51,28 @@ export class CombatEngine {
     const hasDefenderDestroyer = defenders.some(u => u.type === 'destroyer');
 
     let subRolls = [], subHits = 0;
-    if (subAttackers.length > 0 && !hasDefenderDestroyer) {
+    const firstStrikeActive = subAttackers.length > 0 && !hasDefenderDestroyer;
+    if (firstStrikeActive) {
       const result = CombatEngine.rollDice(subAttackers.length, unitDefs['submarine'].attack);
       subRolls = result.rolls; subHits = result.hits;
+    } else if (subAttackers.length > 0) {
+      // Destroyer present — subs fight normally (no first strike)
+      subAttackers.forEach(u => {
+        const def = unitDefs[u.type];
+        if (def?.attack > 0) {
+          const { rolls, hits } = CombatEngine.rollDice(1, def.attack);
+          subRolls.push(...rolls); subHits += hits;
+        }
+      });
     }
 
     // Artillery support: each artillery boosts 1 infantry attack from 1 to 2
     const artilleryCount = nonSubAttackers.filter(u => u.type === 'artillery').length;
     let infantryBoosted = 0;
 
-    // Build attacker dice pool
-    let attackerRolls = [...subRolls];
-    let attackerHits = subHits;
+    // Build NON-sub attacker dice pool separately so CombatModal can sequence properly
+    let mainAttackerRolls = [];
+    let mainAttackerHits = 0;
 
     nonSubAttackers.forEach(u => {
       const def = unitDefs[u.type];
@@ -73,10 +83,13 @@ export class CombatEngine {
       }
       if (hitOn > 0) {
         const { rolls, hits } = CombatEngine.rollDice(1, hitOn);
-        attackerRolls.push(...rolls);
-        attackerHits += hits;
+        mainAttackerRolls.push(...rolls);
+        mainAttackerHits += hits;
       }
     });
+
+    const attackerRolls = [...subRolls, ...mainAttackerRolls];
+    const attackerHits  = subHits + mainAttackerHits;
 
     // Defender dice pool
     let defenderRolls = [], defenderHits = 0;
@@ -91,7 +104,11 @@ export class CombatEngine {
       }
     });
 
-    return { attackerRolls, defenderRolls, attackerHits, defenderHits, aaResults };
+    return {
+      attackerRolls, defenderRolls, attackerHits, defenderHits, aaResults,
+      // First-strike data: CombatModal uses these to apply sub hits before defenders fire
+      subHits, subRolls, mainAttackerHits, mainAttackerRolls, firstStrikeActive,
+    };
   }
 
   /**

@@ -4,6 +4,8 @@ import { AIController } from '../ai/AIController.js';
 import { SCENARIO_1942 } from '../data/scenarios.js';
 import { NATIONS, TURN_ORDER, areEnemies } from '../data/nations.js';
 import { TERRITORIES } from '../data/territories.js';
+import { getAllUnits } from '../data/units.js';
+import { CombatEngine } from '../engine/CombatEngine.js';
 import { MapRenderer } from './MapRenderer.js';
 import { HUD } from './HUD.js';
 import { PurchasePanel } from './PurchasePanel.js';
@@ -429,6 +431,7 @@ export class App {
       if (myUnits.length === 0) return;
       this.selectedTerritory = territoryId;
       this.movingUnits = myUnits.map(u => u.id);
+      this._movingUnitObjs = myUnits; // keep objects for SBR check
       // Highlight valid targets
       this.validTargets = this._getValidTargets(territoryId, myUnits, phase);
       this.map.setSelection(territoryId, this.validTargets);
@@ -436,15 +439,112 @@ export class App {
       // Second click — move to target
       if (this.validTargets.includes(territoryId)) {
         const fromId = this.selectedTerritory;
+        const unitObjs = this._movingUnitObjs || [];
         this.state.moveUnits(this.movingUnits, fromId, territoryId);
-        // Draw movement arrow to record the move visually
         this.map.showMoveArrow(fromId, territoryId);
+
+        // ── Strategic Bombing Run opportunity ────────────────────────────
+        if (phase === 'combat_move') {
+          const unitDefs = getAllUnits();
+          const bombers = unitObjs.filter(u => unitDefs[u.type]?.canStrategicBomb);
+          const targetOwner = this.state.ownership[territoryId];
+          const hasEnemyIC = this.state.industrialComplexes[territoryId] &&
+            targetOwner && areEnemies(targetOwner, nation);
+          if (bombers.length > 0 && hasEnemyIC) {
+            this._showSBRDialog(bombers, fromId, territoryId);
+          }
+        }
       }
       this.selectedTerritory = null;
       this.movingUnits = [];
+      this._movingUnitObjs = [];
       this.validTargets = [];
       this.map.clearSelection();
     }
+  }
+
+  /** Show Strategic Bombing Run dialog after bombers move to enemy IC territory */
+  _showSBRDialog(bombers, fromId, targetId) {
+    const territory = TERRITORIES[targetId];
+    const existing = this.state.icDamage[targetId] || 0;
+    const capacity = this.state.getICCapacity(targetId);
+    const baseIPC   = territory?.ipc || 0;
+
+    // Check for AA guns at target
+    const aaGuns = this.state.getUnits(targetId).filter(u => {
+      const def = getAllUnits()[u.type];
+      return def?.shootsAtAir && u.nation !== this.state.currentNation;
+    });
+
+    const wrap = document.createElement('div');
+    wrap.id = 'sbr-dialog';
+    wrap.innerHTML = `
+      <style>${SBR_CSS}</style>
+      <div class="sbr-modal">
+        <div class="sbr-title">💣 Strategic Bombing Run</div>
+        <div class="sbr-body">
+          <div class="sbr-territory">${territory?.name || targetId}</div>
+          <div class="sbr-info">
+            <span>${bombers.length} bomber${bombers.length > 1 ? 's' : ''}</span>
+            <span>IC capacity: ${capacity}/${baseIPC}</span>
+            ${existing > 0 ? `<span style="color:#e06040">Already damaged: ${existing}</span>` : ''}
+            ${aaGuns.length > 0 ? `<span style="color:#e8c840">⚡ AA gun present — fires first!</span>` : ''}
+          </div>
+          <div class="sbr-result" id="sbr-result"></div>
+        </div>
+        <div class="sbr-actions" id="sbr-actions">
+          <button class="sbr-btn sbr-bomb" id="sbr-do-bomb">💣 Strategic Bomb</button>
+          <button class="sbr-btn sbr-fight" id="sbr-join-combat">✈️ Join Combat</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(wrap);
+
+    // SBR: conduct the bombing run
+    document.getElementById('sbr-do-bomb').addEventListener('click', () => {
+      let survivingBombers = [...bombers];
+      let resultHTML = '';
+
+      // AA fire against bombers
+      if (aaGuns.length > 0 && survivingBombers.length > 0) {
+        const { rolls, hits } = CombatEngine.rollDice(survivingBombers.length, 1);
+        const shotDown = hits;
+        resultHTML += `<div class="sbr-aa">⚡ AA Fire: [${rolls.join(',')}] — <b>${shotDown}</b> bomber${shotDown !== 1 ? 's' : ''} shot down</div>`;
+        // Remove shot-down bombers
+        for (let i = 0; i < shotDown && survivingBombers.length > 0; i++) {
+          const b = survivingBombers.shift();
+          this.state.units[targetId] = (this.state.units[targetId] || []).filter(u => u.id !== b.id);
+        }
+      }
+
+      if (survivingBombers.length > 0) {
+        // Apply strategic bombing damage
+        const { rolls, damage } = this.state.applyStrategicBombing(targetId, survivingBombers);
+        const newCap = this.state.getICCapacity(targetId);
+        resultHTML += `<div class="sbr-roll">Bombing dice: [${rolls.join(', ')}]</div>`;
+        resultHTML += `<div class="sbr-dmg">IC damage: <b>+${damage}</b> — new capacity ${newCap}/${baseIPC}</div>`;
+
+        // Move surviving bombers back to origin (they return from the mission)
+        const survivingIds = survivingBombers.map(u => u.id);
+        this.state.moveUnits(survivingIds, targetId, fromId);
+        resultHTML += `<div class="sbr-return">Bombers return to base.</div>`;
+      } else {
+        resultHTML += `<div class="sbr-return" style="color:#e05040">All bombers shot down.</div>`;
+      }
+
+      document.getElementById('sbr-result').innerHTML = resultHTML;
+      document.getElementById('sbr-actions').innerHTML = `<button class="sbr-btn sbr-ok" id="sbr-ok">Continue →</button>`;
+      document.getElementById('sbr-ok').addEventListener('click', () => {
+        wrap.remove();
+        this.map.render();
+        this.hud.render();
+      });
+    });
+
+    // Join combat — bombers stay in territory for normal combat
+    document.getElementById('sbr-join-combat').addEventListener('click', () => {
+      wrap.remove();
+    });
   }
 
   _getValidTargets(fromId, units, phase) {
@@ -793,4 +893,37 @@ const FLOAT_CSS = `
     pointer-events: none; z-index: 399; white-space: nowrap;
     text-shadow: 0 1px 4px #000;
   }
+`;
+
+// ── STRATEGIC BOMBING CSS ────────────────────────────────────────────────────
+const SBR_CSS = `
+  #sbr-dialog {
+    position: fixed; inset: 0; background: rgba(5,10,20,0.88);
+    z-index: 450; display: flex; align-items: center; justify-content: center;
+  }
+  .sbr-modal {
+    background: #111e30; border: 1px solid #1e3a5a;
+    border-radius: 12px; padding: 22px 26px;
+    max-width: 400px; width: 92%;
+    font-family: Georgia, serif; color: #d4c9a8;
+  }
+  .sbr-title { font-size: 1.15rem; color: #c8a040; font-weight: bold; margin-bottom: 14px; text-align: center; }
+  .sbr-territory { font-size: 1rem; color: #e8d080; margin-bottom: 8px; text-align: center; font-weight: bold; }
+  .sbr-info { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; font-size: 0.82rem; color: #8a9aaa; }
+  .sbr-result { margin-bottom: 12px; font-size: 0.82rem; display: flex; flex-direction: column; gap: 4px; }
+  .sbr-aa   { color: #e8c840; }
+  .sbr-roll { color: #8ab8e8; }
+  .sbr-dmg  { color: #e07848; font-weight: bold; }
+  .sbr-return { color: #60aa60; font-style: italic; }
+  .sbr-actions { display: flex; gap: 10px; }
+  .sbr-btn {
+    flex: 1; padding: 12px; border: none; border-radius: 8px;
+    font-family: Georgia, serif; font-size: 0.9rem; font-weight: bold;
+    cursor: pointer; min-height: 48px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sbr-btn:active { transform: scale(0.97); }
+  .sbr-bomb  { background: #c85020; color: #fff; }
+  .sbr-fight { background: #1e3a5a; color: #d4c9a8; }
+  .sbr-ok    { background: #3aaa44; color: #fff; width: 100%; }
 `;
