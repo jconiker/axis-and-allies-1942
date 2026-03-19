@@ -553,24 +553,24 @@ export class App {
 
       // Determine the dominant unit type in the selection
       // (mixed stacks use the most restrictive movement)
-      const LAND_TYPES  = new Set(['infantry','artillery','armor','antiair']);
-      const AIR_TYPES   = new Set(['fighter','bomber']);
-      const NAVAL_TYPES = new Set(['submarine','destroyer','cruiser','carrier','battleship','transport']);
+      const unitDefs = getAllUnits();
+      const LAND_TYPES  = new Set(['infantry','artillery','armor','antiair','tiger_tank','t34_tank','digger_inf']);
+      const AIR_TYPES   = new Set(['fighter','bomber','tactical_bomber','b52','stealth_fighter','zero_fighter','spitfire']);
+      const NAVAL_TYPES = new Set(['submarine','destroyer','cruiser','carrier','battleship','transport','ford_carrier']);
 
-      const UNIT_MOVE = {
-        infantry:1, artillery:1, armor:2, antiair:1,
-        fighter:4,  bomber:6,
-        submarine:2, destroyer:2, cruiser:2,
-        carrier:2,  battleship:2, transport:2,
-      };
+      // Build movement table from unit definitions (covers custom units too)
+      const UNIT_MOVE = {};
+      Object.entries(unitDefs).forEach(([id, def]) => { UNIT_MOVE[id] = def.movement || 1; });
 
-      // Figure out unit categories
-      let hasLand = false, hasAir = false, hasNaval = false;
+      // Figure out unit categories and blitz capability
+      let hasLand = false, hasAir = false, hasNaval = false, canBlitz = false;
       units.forEach(u => {
-        if (LAND_TYPES.has(u.type))  hasLand  = true;
+        if (LAND_TYPES.has(u.type))  { hasLand  = true; if (unitDefs[u.type]?.blitz) canBlitz = true; }
         if (AIR_TYPES.has(u.type))   hasAir   = true;
         if (NAVAL_TYPES.has(u.type)) hasNaval = true;
       });
+      // Blitz only applies to pure-armor stacks (no infantry/artillery dragging along)
+      if (hasLand && units.some(u => LAND_TYPES.has(u.type) && !unitDefs[u.type]?.blitz)) canBlitz = false;
 
       // AA guns may not move in combat phase
       if (phase === 'combat_move' && units.every(u => u.type === 'antiair')) return [];
@@ -586,12 +586,12 @@ export class App {
 
       // BFS to find all reachable territory IDs within maxMove steps
       const reachable = new Set();
-      // frontier: [{id, movesLeft, enteredEnemy}]
-      const frontier  = [{ id: fromId, movesLeft: maxMove, enteredEnemy: false }];
+      // frontier: [{id, movesLeft, enteredEnemy, blitzedThrough}]
+      const frontier  = [{ id: fromId, movesLeft: maxMove, enteredEnemy: false, blitzedThrough: false }];
       const visited   = new Map(); // id → movesLeft (prune if already visited with more moves)
 
       while (frontier.length > 0) {
-        const { id, movesLeft, enteredEnemy } = frontier.shift();
+        const { id, movesLeft, enteredEnemy, blitzedThrough } = frontier.shift();
         const t = TERRITORIES[id];
         if (!t) continue;
 
@@ -604,21 +604,33 @@ export class App {
           if (hasNaval && !hasAir && adj.type !== 'sea')  continue; // naval can't enter land
 
           const owner    = this.state.ownership[adjId];
-          const isEnemy  = owner && owner !== 'neutral' && areEnemies(owner, nation);
-          const isFriendly = !isEnemy;
+          const isEnemyOwned = owner && owner !== 'neutral' && areEnemies(owner, nation);
+          const hasEnemyUnits = (this.state.units[adjId] || []).some(u => areEnemies(u.nation, nation));
+          const isEnemy = isEnemyOwned || hasEnemyUnits;
+          // Blitz: unoccupied enemy territory (enemy-owned but no enemy units)
+          const isBlitzable = canBlitz && isEnemyOwned && !hasEnemyUnits && phase === 'combat_move';
 
           if (phase === 'combat_move') {
             // Can move to any adjacent territory in combat move
             // Land/naval stop when entering enemy territory (no passing through)
             // Air units can fly over territory freely
+            // Blitz: armor can pass through unoccupied enemy territory
             reachable.add(adjId);
 
             const prevMoves = visited.get(adjId);
             if (movesLeft > 1 && (prevMoves === undefined || prevMoves < movesLeft - 1)) {
               visited.set(adjId, movesLeft - 1);
-              // Land stops when it enters enemy territory (can't pass through)
-              if (!enteredEnemy && (!isEnemy || hasAir)) {
-                frontier.push({ id: adjId, movesLeft: movesLeft - 1, enteredEnemy: isEnemy });
+              // Can continue through: friendly territories, air over anything,
+              // or blitz through unoccupied enemy territory (once only)
+              const canContinue = hasAir
+                || (!isEnemy && !enteredEnemy)
+                || (isBlitzable && !blitzedThrough);
+              if (canContinue) {
+                frontier.push({
+                  id: adjId, movesLeft: movesLeft - 1,
+                  enteredEnemy: isEnemy,
+                  blitzedThrough: blitzedThrough || isBlitzable,
+                });
               }
             }
 
