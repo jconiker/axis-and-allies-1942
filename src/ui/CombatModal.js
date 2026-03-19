@@ -20,6 +20,8 @@ export class CombatModal {
     this._log = [];
     this._round = 0;
     this._done = false;
+    this._bombardmentDone = false;
+    this._bombardShips = this._findBombardShips(territoryId);
 
     if (!this._el) {
       this._el = document.createElement('div');
@@ -28,6 +30,33 @@ export class CombatModal {
       this.container.appendChild(this._el);
     }
     this._render();
+  }
+
+  /** Find eligible bombardment ships in adjacent sea zones (A&A 1942 SE) */
+  _findBombardShips(territoryId) {
+    const territory = TERRITORIES[territoryId];
+    if (!territory || territory.type !== 'land') return [];
+    const nation = this.state.currentNation;
+    const unitDefs = getAllUnits();
+
+    // Count attacking land units (caps bombardment ships at that number)
+    const attackingLandUnits = this.state.getUnits(territoryId, nation)
+      .filter(u => unitDefs[u.type]?.type === 'land').length;
+    if (attackingLandUnits === 0) return [];
+
+    // Find canBombard ships in adjacent sea zones owned/occupied by attacker
+    const ships = [];
+    for (const adjId of (territory.adjacent || [])) {
+      const adj = TERRITORIES[adjId];
+      if (!adj || adj.type !== 'sea') continue;
+      const friendlyShips = (this.state.units[adjId] || []).filter(u => {
+        return u.nation === nation && unitDefs[u.type]?.canBombard;
+      });
+      ships.push(...friendlyShips);
+    }
+
+    // A&A rule: max 1 ship per landing land unit
+    return ships.slice(0, attackingLandUnits);
   }
 
   hide() {
@@ -90,9 +119,10 @@ export class CombatModal {
       ${this._log.length > 0 ? `
         <div class="cm-log">
           ${this._log.slice(-5).map(l => {
-            if (l.aa)  return `<div class="cm-log-line aa">⚡ AA guns fire: <b>${l.hits}</b> aircraft shot down</div>`;
-            if (l.sub) return `<div class="cm-log-line sub">🤿 Sub first strike: <b>${l.hits}</b> hit${l.hits !== 1 ? 's' : ''}${l.suppressed ? ' — defenders silenced!' : ''}</div>`;
-            if (l.error) return `<div class="cm-log-line err">⚠ Combat error — retry</div>`;
+            if (l.aa)      return `<div class="cm-log-line aa">⚡ AA guns fire: <b>${l.hits}</b> aircraft shot down</div>`;
+            if (l.sub)     return `<div class="cm-log-line sub">🤿 Sub first strike: <b>${l.hits}</b> hit${l.hits !== 1 ? 's' : ''}${l.suppressed ? ' — defenders silenced!' : ''}</div>`;
+            if (l.bombard) return `<div class="cm-log-line bombard">⚓ Naval bombardment (${l.ships} ship${l.ships > 1 ? 's' : ''}): [${l.rolls.join(',')}] — <b>${l.hits}</b> hit${l.hits !== 1 ? 's' : ''}, <b>${l.killed}</b> killed</div>`;
+            if (l.error)   return `<div class="cm-log-line err">⚠ Combat error — retry</div>`;
             return `<div class="cm-log-line">
               <div class="cm-log-round">Round ${l.round}${l.firstStrike ? ' 🤿' : ''}</div>
               <div class="cm-log-row">
@@ -115,6 +145,14 @@ export class CombatModal {
       ${this._done ? `
         <div class="cm-done-msg">${this._doneMsg}</div>
         <button class="cm-btn cm-btn-ok" id="cm-ok">Continue →</button>
+      ` : !this._bombardmentDone && this._bombardShips.length > 0 ? `
+        <div class="cm-bombard-notice">
+          ⚓ ${this._bombardShips.length} warship${this._bombardShips.length > 1 ? 's' : ''} available for naval bombardment
+        </div>
+        <div class="cm-actions">
+          <button class="cm-btn cm-btn-bombard" id="cm-bombard">⚓ Bombard</button>
+          <button class="cm-btn cm-btn-retreat" id="cm-skip-bombard">Skip →</button>
+        </div>
       ` : `
         <div class="cm-actions">
           <button class="cm-btn cm-btn-roll" id="cm-roll">🎲 Roll Dice</button>
@@ -125,6 +163,11 @@ export class CombatModal {
 
     modal.querySelector('#cm-roll')?.addEventListener('click', () => this._doRound());
     modal.querySelector('#cm-retreat')?.addEventListener('click', () => this._doRetreat());
+    modal.querySelector('#cm-bombard')?.addEventListener('click', () => this._doBombardment());
+    modal.querySelector('#cm-skip-bombard')?.addEventListener('click', () => {
+      this._bombardmentDone = true;
+      this._render();
+    });
     modal.querySelector('#cm-ok')?.addEventListener('click', () => {
       this.hide();
       // Remove this combat from pending
@@ -273,6 +316,44 @@ export class CombatModal {
     this._render();
   }
 
+  _doBombardment() {
+    const nation = this.state.currentNation;
+    const unitDefs = getAllUnits();
+    this._bombardmentDone = true;
+
+    let totalHits = 0;
+    let allRolls = [];
+    this._bombardShips.forEach(ship => {
+      const def = unitDefs[ship.type];
+      if (!def) return;
+      const { rolls, hits } = CombatEngine.rollDice(1, def.attack);
+      allRolls.push(...rolls);
+      totalHits += hits;
+    });
+
+    // Apply bombardment casualties (defender picks, transports taken last)
+    const defenders = this.state.getUnits(this._tid).filter(u => u.nation !== nation);
+    const cas = CombatEngine.selectCasualties(defenders, totalHits, false);
+    let killed = 0;
+    cas.filter(c => c.killed).forEach(c => {
+      this.state.units[this._tid] = this.state.units[this._tid].filter(u => u.id !== c.unit.id);
+      killed++;
+    });
+
+    const shipNames = this._bombardShips.map(s => unitDefs[s.type]?.name || s.type).join(', ');
+    this._log.push({
+      bombard: true,
+      ships: this._bombardShips.length,
+      shipNames,
+      rolls: allRolls,
+      hits: totalHits,
+      killed,
+    });
+
+    this.state.autosave();
+    this._render();
+  }
+
   _finishCombat(winner) {
     const nation = this.state.currentNation;
     if (winner === 'attacker') {
@@ -328,9 +409,10 @@ const COMBAT_CSS = `
     margin-bottom: 14px; max-height: 160px; overflow-y: auto;
   }
   .cm-log-line { font-size: 0.72rem; color: #8aaa8a; margin-bottom: 6px; }
-  .cm-log-line.aa  { color: #e8c840; }
-  .cm-log-line.sub { color: #40c8e8; }
-  .cm-log-line.err { color: #e05040; }
+  .cm-log-line.aa      { color: #e8c840; }
+  .cm-log-line.sub     { color: #40c8e8; }
+  .cm-log-line.bombard { color: #8080e8; }
+  .cm-log-line.err     { color: #e05040; }
   .cm-log-round  { font-size: 0.62rem; color: #506080; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
   .cm-log-row    { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
   .cm-log-atk    { width: 28px; font-size: 0.6rem; color: #70b870; font-weight: bold; }
@@ -362,7 +444,12 @@ const COMBAT_CSS = `
   .cm-btn:active { transform: scale(0.97); }
   .cm-btn-roll    { background: #c8a040; color: #0a1628; }
   .cm-btn-retreat { background: #1e3a5a; color: #d4c9a8; }
+  .cm-btn-bombard { background: #3a3a8a; color: #d4d4ff; }
   .cm-btn-ok      { width: 100%; background: #3aaa44; color: #fff; }
+  .cm-bombard-notice {
+    font-size: 0.78rem; color: #8080e8; text-align: center;
+    margin-bottom: 8px; padding: 6px; background: #0a0a1a; border-radius: 5px;
+  }
 
   .cm-done-msg {
     text-align: center; font-size: 1rem; color: #c8a040;
