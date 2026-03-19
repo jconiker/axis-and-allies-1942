@@ -125,6 +125,7 @@ export class PurchasePanel {
 
       <div class="pp-list">
         ${units.map(u => this._unitRow(u, ipc, pendingCounts[u.id] || 0, nd)).join('')}
+        ${this._tab === 'industry' ? this._renderRepairSection(nation, ipc) : ''}
       </div>
 
       <div class="pp-footer">
@@ -144,6 +145,13 @@ export class PurchasePanel {
     panel.querySelectorAll('.pp-minus').forEach(b =>
       b.addEventListener('click', () => { this.state.refundUnit(b.dataset.type, nation); this._render(); }));
 
+    // IC repair buttons
+    panel.querySelectorAll('.pp-repair-btn').forEach(b =>
+      b.addEventListener('click', () => {
+        this.state.repairIC(b.dataset.tid, nation, 1);
+        this._render();
+      }));
+
     // Close + end phase
     panel.querySelector('#pp-x')?.addEventListener('click', () => this.hide());
     panel.querySelector('#pp-end')?.addEventListener('click', () => {
@@ -156,6 +164,31 @@ export class PurchasePanel {
         new CustomUnitEditor(document.getElementById('overlay-root'), this.app).show();
       }).catch(() => {});
     });
+  }
+
+  _renderRepairSection(nation, ipc) {
+    const damagedICs = Object.entries(this.state.icDamage)
+      .filter(([tid, dmg]) => dmg > 0 && this.state.industrialComplexes[tid] === nation);
+    if (damagedICs.length === 0) return '';
+
+    return `
+      <div class="pp-repair-section">
+        <div class="pp-repair-title">🏭 IC REPAIR (1 IPC per damage token)</div>
+        ${damagedICs.map(([tid, dmg]) => {
+          const base = this.state.getTerritoryIPC(tid);
+          const cap  = this.state.getICCapacity(tid);
+          const canRepair = ipc >= 1 && dmg > 0;
+          const label = tid.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          return `
+            <div class="pp-repair-row">
+              <span class="pp-repair-name">${label}</span>
+              <span class="pp-repair-dmg">⚠ ${dmg} dmg — cap ${cap}/${base}</span>
+              <button class="pp-repair-btn" data-tid="${tid}" ${!canRepair ? 'disabled' : ''}>
+                Repair −1 (1 IPC)
+              </button>
+            </div>`;
+        }).join('')}
+      </div>`;
   }
 
   _unitRow(u, ipc, qty, nd) {
@@ -332,6 +365,31 @@ const PANEL_CSS = `
     font-size: 0.52rem; color: #607090; margin-left: 4px;
     letter-spacing: 0.5px; text-transform: uppercase;
   }
+
+  /* IC Repair section */
+  .pp-repair-section {
+    padding: 10px 14px 6px;
+    border-top: 1px solid #2a2a20;
+    margin-top: 4px;
+  }
+  .pp-repair-title {
+    font-size: 0.6rem; color: #7a6020; letter-spacing: 1px; font-weight: bold;
+    margin-bottom: 8px; text-transform: uppercase;
+  }
+  .pp-repair-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 0; border-bottom: 1px solid #1e1e18;
+  }
+  .pp-repair-name { font-size: 0.65rem; font-weight: bold; color: #c0a860; flex: 1; }
+  .pp-repair-dmg  { font-size: 0.6rem; color: #c05030; white-space: nowrap; }
+  .pp-repair-btn {
+    background: #1e2a10; color: #80b840; border: 1px solid #3a5020;
+    border-radius: 4px; padding: 4px 8px; font-size: 0.6rem; font-weight: bold;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pp-repair-btn:hover:not(:disabled) { background: #2e4018; color: #a0d860; }
+  .pp-repair-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
   .pp-end {
     background: #b83010; color: #fff;
