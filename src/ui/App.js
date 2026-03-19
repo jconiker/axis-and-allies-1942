@@ -654,15 +654,27 @@ export class App {
     const isPlacingIC = nextUnit === 'industrial_complex';
     const hasIC = this.state.industrialComplexes[territoryId] === nation;
     const ownsTerritory = this.state.ownership[territoryId] === nation;
+    const unitDefs = getAllUnits();
+    const isNaval = unitDefs[nextUnit]?.type === 'sea';
+    const territory = TERRITORIES[territoryId];
 
     if (isPlacingIC) {
       // Build IC on owned territory (3+ IPC, no existing IC)
-      const ipcVal = TERRITORIES[territoryId]?.ipc ?? 0;
+      const ipcVal = territory?.ipc ?? 0;
       if (!ownsTerritory) { this._toast('You must own the territory to build an industrial complex.'); return; }
       if (hasIC) { this._toast('Territory already has an industrial complex.'); return; }
       if (ipcVal < 3) { this._toast('Industrial complexes require 3+ IPC territory.'); return; }
+    } else if (isNaval) {
+      // Naval units: can place at IC land territory (auto-routed to sea) OR adjacent sea zone
+      if (territory?.type === 'sea') {
+        // Clicked a sea zone — check if adjacent IC exists
+        const adjIC = territory.adjacent.find(a => this.state.industrialComplexes[a] === nation);
+        if (!adjIC) { this._toast('Place naval units at an industrial complex or adjacent sea zone.'); return; }
+      } else if (!hasIC) {
+        this._toast('Naval units must be placed at an industrial complex.'); return;
+      }
     } else {
-      // Normal units must be placed at existing IC
+      // Land/air units must be placed at existing IC
       if (!hasIC) { this._toast('Units must be placed at industrial complexes.'); return; }
     }
 

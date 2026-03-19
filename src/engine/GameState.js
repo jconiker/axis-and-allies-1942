@@ -222,17 +222,44 @@ export class GameState {
         // ICs are buildings — register in industrialComplexes, not units array
         this.industrialComplexes[territoryId] = nation;
       } else {
+        // Resolve IC territory (the territory whose capacity we charge against)
+        // Naval units are placed in adjacent sea zones — find the IC territory for capacity.
+        const unitDef = getAllUnits()[unitType];
+        const isNaval = unitDef?.type === 'sea';
+        const tTerritory = TERRITORIES[territoryId];
+
+        let icTid = territoryId;   // territory used for capacity tracking
+        let placeTid = territoryId; // territory where unit actually appears
+
+        if (isNaval && tTerritory?.type !== 'sea') {
+          // Clicked land IC → auto-route naval unit to first adjacent sea zone
+          const adjSea = tTerritory?.adjacent.find(a => TERRITORIES[a]?.type === 'sea');
+          if (!adjSea) {
+            this.pendingPlacements[nation].splice(idx, 0, unitType);
+            return false; // no adjacent sea zone
+          }
+          placeTid = adjSea;
+          // icTid stays as the land IC territory for capacity charging
+        } else if (isNaval && tTerritory?.type === 'sea') {
+          // Clicked a sea zone directly — find the adjacent IC for capacity
+          const adjIC = tTerritory?.adjacent.find(a =>
+            this.industrialComplexes[a] === nation
+          );
+          icTid = adjIC || territoryId; // fall back gracefully
+        }
+
         // A&A 1942 SE: cannot place more units than IC capacity (IPC minus damage tokens)
-        const icIPC = this.getICCapacity(territoryId);
-        const placedHere = this.unitsPlacedThisTurn[territoryId] || 0;
+        const icIPC = this.getICCapacity(icTid);
+        const placedHere = this.unitsPlacedThisTurn[icTid] || 0;
         if (placedHere >= icIPC) {
-          this.pendingPlacements[nation].splice(idx, 0, unitType); // put back
-          this._emit('placement_limit_reached', { territoryId, limit: icIPC });
+          this.pendingPlacements[nation].splice(idx, 0, unitType);
+          this._emit('placement_limit_reached', { territoryId: icTid, limit: icIPC });
           return false;
         }
+
         const unit = this._makeUnit(unitType, nation);
-        this.units[territoryId] = [...(this.units[territoryId] || []), unit];
-        this.unitsPlacedThisTurn[territoryId] = placedHere + 1;
+        this.units[placeTid] = [...(this.units[placeTid] || []), unit];
+        this.unitsPlacedThisTurn[icTid] = placedHere + 1;
       }
 
       this._emit('unit_placed', { unitType, nation, territoryId });

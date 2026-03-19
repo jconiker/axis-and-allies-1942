@@ -358,13 +358,22 @@ export class AIController {
       primaryIC = icsByThreat[0]?.ic || primaryIC;
     }
 
+    const unitDefs = getAllUnits();
     pending.forEach(unitType => {
       if (unitType === 'industrial_complex') {
         // AI doesn't build ICs (too complex to place correctly)
         this.state.refundUnit(unitType, nation);
         return;
       }
-      this.state.placeUnit(unitType, nation, primaryIC);
+      // Naval units: placeUnit auto-routes to adjacent sea zone when passed a land IC
+      // For naval, try ICs that have adjacent sea zones
+      const isNaval = unitDefs[unitType]?.type === 'sea';
+      if (isNaval) {
+        const navalIC = myICs.find(ic => TERRITORIES[ic]?.adjacent.some(a => TERRITORIES[a]?.type === 'sea'));
+        this.state.placeUnit(unitType, nation, navalIC || primaryIC);
+      } else {
+        this.state.placeUnit(unitType, nation, primaryIC);
+      }
     });
   }
 
