@@ -33,7 +33,8 @@ export class CombatEngine {
       const aaGuns = defenders.filter(u => unitDefs[u.type]?.shootsAtAir);
       const attackingAir = attackers.filter(u => unitDefs[u.type]?.type === 'air');
       if (aaGuns.length > 0 && attackingAir.length > 0) {
-        const shots = Math.min(aaGuns.length * (unitDefs['antiair']?.airShots || 1), attackingAir.length);
+        // A&A 1942 SE rule: 1 die per attacking aircraft (AA guns don't stack)
+        const shots = attackingAir.length;
         const { rolls, hits } = CombatEngine.rollDice(shots, 1);
         aaResults = { rolls, hits, targets: attackingAir.slice(0, hits).map(u => u.id) };
       }
@@ -82,6 +83,7 @@ export class CombatEngine {
     defenders.forEach(u => {
       const def = unitDefs[u.type];
       if (!def || def.shootsAtAir) return; // AA guns don't roll in normal combat
+      if (def.noFire) return;              // transports cannot fire
       if (def.defense > 0) {
         const { rolls, hits } = CombatEngine.rollDice(1, def.defense);
         defenderRolls.push(...rolls);

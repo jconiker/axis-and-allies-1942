@@ -27,6 +27,8 @@ export class GameState {
     this.winner = null;
     this.technologies = {};     // { nationId: string[] }  — researched tech ids
     this.industrialComplexes = {};  // { territoryId: nationId } — IC locations
+    this.icDamage = {};             // { territoryId: number } — damage tokens on ICs
+    this.unitsPlacedThisTurn = {}; // { territoryId: count } — reset each placement phase
     this._listeners = [];
   }
 
@@ -95,9 +97,64 @@ export class GameState {
     }, {});
   }
 
-  /** IPC value of a territory, accounting for any damage (future: IC damage) */
+  /** IPC value of a territory's IC (reduced by damage tokens) */
   getTerritoryIPC(territoryId) {
     return TERRITORIES[territoryId]?.ipc || 0;
+  }
+
+  /** Effective IC production capacity (IPC minus damage) */
+  getICCapacity(territoryId) {
+    const base = this.getTerritoryIPC(territoryId);
+    const dmg = this.icDamage[territoryId] || 0;
+    return Math.max(0, base - dmg);
+  }
+
+  /** Apply strategic bombing damage to an IC. Returns damage dealt. */
+  applyStrategicBombing(territoryId, bomberUnits) {
+    try {
+      const defs = getAllUnits();
+      let totalDamage = 0;
+      const rolls = [];
+      bomberUnits.forEach(u => {
+        const dice = defs[u.type]?.bombingDice || 1;
+        for (let i = 0; i < dice; i++) {
+          const roll = Math.ceil(Math.random() * 6);
+          rolls.push(roll);
+          totalDamage += roll;
+        }
+      });
+      const maxDmg = this.getTerritoryIPC(territoryId) * 2; // max damage = 2× IPC value
+      const cap = this.icDamage[territoryId] || 0;
+      const actual = Math.min(totalDamage, maxDmg - cap);
+      if (actual > 0) {
+        this.icDamage[territoryId] = (cap + actual);
+        this._emit('ic_bombed', { territoryId, rolls, damage: actual, totalDamage: cap + actual });
+        this.autosave();
+      }
+      return { rolls, damage: actual };
+    } catch (e) {
+      console.error('[GameState] applyStrategicBombing failed:', e);
+      return { rolls: [], damage: 0 };
+    }
+  }
+
+  /** Repair IC damage (purchase phase) at 1 IPC per point */
+  repairIC(territoryId, nation, amount) {
+    try {
+      const cost = amount;
+      if ((this.ipc[nation] || 0) < cost) return false;
+      const current = this.icDamage[territoryId] || 0;
+      const repaired = Math.min(amount, current);
+      if (repaired <= 0) return false;
+      this.icDamage[territoryId] = current - repaired;
+      this.ipc[nation] -= repaired;
+      this._emit('ic_repaired', { territoryId, nation, repaired });
+      this.autosave();
+      return true;
+    } catch (e) {
+      console.error('[GameState] repairIC failed:', e);
+      return false;
+    }
   }
 
   /** Calculate total income for a nation based on current ownership */
@@ -165,8 +222,17 @@ export class GameState {
         // ICs are buildings — register in industrialComplexes, not units array
         this.industrialComplexes[territoryId] = nation;
       } else {
+        // A&A 1942 SE: cannot place more units than IC capacity (IPC minus damage tokens)
+        const icIPC = this.getICCapacity(territoryId);
+        const placedHere = this.unitsPlacedThisTurn[territoryId] || 0;
+        if (placedHere >= icIPC) {
+          this.pendingPlacements[nation].splice(idx, 0, unitType); // put back
+          this._emit('placement_limit_reached', { territoryId, limit: icIPC });
+          return false;
+        }
         const unit = this._makeUnit(unitType, nation);
         this.units[territoryId] = [...(this.units[territoryId] || []), unit];
+        this.unitsPlacedThisTurn[territoryId] = placedHere + 1;
       }
 
       this._emit('unit_placed', { unitType, nation, territoryId });
@@ -315,6 +381,7 @@ export class GameState {
     const idx = phases.indexOf(this.phase);
     if (idx < phases.length - 1) {
       this.phase = phases[idx + 1];
+      if (this.phase === 'place') this.unitsPlacedThisTurn = {};
     } else {
       this.phase = 'purchase';
       this.currentNationIdx = (this.currentNationIdx + 1) % TURN_ORDER.length;
@@ -341,6 +408,7 @@ export class GameState {
         players: this.players,
         technologies: this.technologies,
         industrialComplexes: this.industrialComplexes,
+        icDamage: this.icDamage,
         pendingPlacements: this.pendingPlacements,
         winner: this.winner,
       };
@@ -383,6 +451,7 @@ export class GameState {
       this.players = data.players || {};
       this.technologies = data.technologies || {};
       this.industrialComplexes = data.industrialComplexes || {};
+      this.icDamage = data.icDamage || {};
       this.pendingPlacements = data.pendingPlacements || {};
       this.winner = data.winner || null;
       this._listeners = [];

@@ -46,8 +46,8 @@ export const UNIT_TYPES = {
     type:'air', canCarry:false, carriedBy:[],
     icon:'💣', color:'#aae', isCustom:false,
     availableFor: null,
-    canStrategicBomb:true, bombingDice:2,
-    description:'Long-range. Can strategic bomb enemy IPC production.'
+    canStrategicBomb:true, bombingDice:1,
+    description:'Long-range. Can strategic bomb enemy IPC production (1 die per bomber).'
   },
   tactical_bomber: {
     id:'tactical_bomber', name:'Tactical Bomber', cost:11, attack:3, defense:3, movement:4,
@@ -101,8 +101,8 @@ export const UNIT_TYPES = {
     id:'transport', name:'Transport', cost:7, attack:0, defense:1, movement:2,
     type:'sea', canCarry:true, carriedBy:[], carriesMax:2, carriesTypes:['infantry','artillery','armor','antiair'],
     icon:'🚤', color:'#44a', isCustom:false,
-    availableFor: null,
-    description:'Carries up to 2 land units (1 heavy = 1 slot, infantry/art = 1 slot each).'
+    availableFor: null, noFire:true,
+    description:'Carries up to 2 land units. Cannot fire in combat (taken as last casualty).'
   },
 };
 

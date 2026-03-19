@@ -23,6 +23,8 @@ export class TerritoryDetail {
     const allUnits = getAllUnits();
     const isCapital = Object.values(NATIONS).some(n => n.capital === territoryId);
     const hasIC = !!this.state.industrialComplexes?.[territoryId];
+    const icDmg = this.state.icDamage?.[territoryId] || 0;
+    const icCap = hasIC ? this.state.getICCapacity(territoryId) : 0;
 
     // Group units by nation then type
     const byNation = {};
@@ -59,7 +61,7 @@ export class TerritoryDetail {
           </div>
           <div class="td-ipc-block">
             ${t.ipc > 0 ? `<span class="td-ipc">${t.ipc}</span><span class="td-ipc-lbl">IPC</span>` : ''}
-            ${hasIC ? '<span class="td-ic-badge">🏭 IC</span>' : ''}
+            ${hasIC ? `<span class="td-ic-badge" title="IC capacity: ${icCap}/${t.ipc}">🏭 IC${icDmg > 0 ? ` <span style="color:#e04;font-size:0.8em">⚠ ${icDmg} dmg</span>` : ''}</span>` : ''}
           </div>
           <button class="td-close" id="td-close">✕</button>
         </div>

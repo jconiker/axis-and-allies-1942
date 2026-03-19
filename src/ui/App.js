@@ -322,6 +322,10 @@ export class App {
     this.state.on('unit_placed', () => {
       try { this.map.render(); } catch {}
     });
+    this.state.on('placement_limit_reached', ({ territoryId, limit }) => {
+      const name = TERRITORIES[territoryId]?.name || territoryId;
+      this._toast(`${name} IC limit reached — max ${limit} units this turn (IPC value).`);
+    });
     this.state.on('income_collected', () => {
       try { this.hud.render(); } catch {}
     });
